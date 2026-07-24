@@ -8,6 +8,7 @@ const {
   decodeDealStateAccount,
   decodeDealTerms,
   decodeInvestorDealPosition,
+  decodeMseBeneficiary,
   decodeReleaseMilestone,
   decodeSettlementSnapshot,
   decodeTreasuryMovement,
@@ -82,7 +83,11 @@ function dealTermsFixture() {
   for (let seed = 1; seed <= 11; seed += 1) writer.hash(seed);
   for (let seed = 12; seed <= 16; seed += 1) writer.pubkey(seed);
   writer.u8(6);
-  for (let seed = 17; seed <= 25; seed += 1) writer.pubkey(seed);
+  // receiptMint..mseUsdcAta (seeds 17-22), then the MSE rail-kind discriminant,
+  // then servicerAuthority..complianceEscrowAta (seeds 23-25).
+  for (let seed = 17; seed <= 22; seed += 1) writer.pubkey(seed);
+  writer.u8(1);
+  for (let seed = 23; seed <= 25; seed += 1) writer.pubkey(seed);
   return writer
     .i64(1_700_000_000)
     .i64(1_700_100_000)
@@ -98,7 +103,7 @@ function dealTermsFixture() {
     .bool(true)
     .u8(254)
     .reserved()
-    .finish(602);
+    .finish(601);
 }
 
 function dealStateFixture() {
@@ -202,6 +207,7 @@ function treasuryMovementFixture() {
     .hash(1)
     .u8(1)
     .u8(6)
+    .u8(0)
     .u64(9_000_000)
     .pubkey(30)
     .hash(31)
@@ -225,7 +231,22 @@ function treasuryMovementFixture() {
     .i64(1_700_004_000)
     .u8(249)
     .reserved()
-    .finish(411);
+    .finish(410);
+}
+
+function mseBeneficiaryFixture() {
+  return new Writer('MseBeneficiary')
+    .u16(1)
+    .hash(40)
+    .pubkey(41)
+    .pubkey(42)
+    .u8(1)
+    .u8(0)
+    .u64(1_700_500_000)
+    .u64(1_700_600_000)
+    .u8(248)
+    .reserved()
+    .finish(75);
 }
 
 test('Anchor account discriminator constants are stable', () => {
@@ -259,6 +280,7 @@ test('binary fixtures match the Rust account allocation constants', () => {
   assert.equal(positionFixture().length, 8 + 640);
   assert.equal(settlementFixture().length, 8 + 640);
   assert.equal(treasuryMovementFixture().length, 8 + 896);
+  assert.equal(mseBeneficiaryFixture().length, 8 + 256);
 });
 
 test('decodes DealTerms V1 with allocated trailing space', () => {
@@ -273,8 +295,10 @@ test('decodes DealTerms V1 with allocated trailing space', () => {
   assert.equal(decoded.receiptMint, pubkey(17));
   assert.equal(decoded.subscriptionVault, pubkey(19));
   assert.equal(decoded.repaymentVault, pubkey(20));
-  assert.equal(decoded.issuerTreasuryOwner, pubkey(21));
-  assert.equal(decoded.issuerTreasuryAta, pubkey(22));
+  assert.equal(decoded.mseWalletOwner, pubkey(21));
+  assert.equal(decoded.mseUsdcAta, pubkey(22));
+  assert.equal(decoded.mseRailKind, 'DIRECT_USDC');
+  assert.equal(decoded.servicerAuthority, pubkey(23));
   assert.equal(decoded.settlementDecimals, 6);
   assert.equal(decoded.minimumRaise, 20_000_000n);
   assert.equal(decoded.hardCap, 30_000_000n);
@@ -346,6 +370,7 @@ test('decodes TreasuryMovement V1', () => {
   assert.equal(decoded.dealId, hash(1));
   assert.equal(decoded.milestoneIndex, 1);
   assert.equal(decoded.status, 'RECONCILED');
+  assert.equal(decoded.railKind, 'SQUADS_FIAT_FORWARD');
   assert.equal(decoded.releasedUsdc, 9_000_000n);
   assert.equal(decoded.releaseRecord, pubkey(30));
   assert.equal(decoded.releaseSignatureHash, hash(31));
@@ -359,6 +384,26 @@ test('decodes TreasuryMovement V1', () => {
   assert.equal(decoded.treasuryApprover, pubkey(35));
   assert.equal(decoded.riskApprover, pubkey(36));
   assert.equal(decoded.reconciledAt, 1_700_004_000n);
+});
+
+test('decodes MseBeneficiary V1', () => {
+  const decoded = decodeMseBeneficiary(mseBeneficiaryFixture());
+  assert.equal(decoded.schemaVersion, 1);
+  assert.equal(decoded.entityHash, hash(40));
+  assert.equal(decoded.walletOwner, pubkey(41));
+  assert.equal(decoded.usdcAta, pubkey(42));
+  assert.equal(decoded.railKind, 'DIRECT_USDC');
+  assert.equal(decoded.status, 'ACTIVE');
+  assert.equal(decoded.registeredAtSlot, 1_700_500_000n);
+  assert.equal(decoded.updatedAtSlot, 1_700_600_000n);
+  assert.equal(decoded.bump, 248);
+});
+
+test('rejects an MseBeneficiary with an unknown rail-kind discriminant', () => {
+  const corrupt = mseBeneficiaryFixture();
+  // discriminator(8) + schema(2) + entityHash(32) + walletOwner(32) + usdcAta(32)
+  corrupt[8 + 2 + 32 + 32 + 32] = 9;
+  assert.throws(() => decodeMseBeneficiary(corrupt), /unknown enum variant 9/);
 });
 
 test('rejects wrong discriminator, unsupported schema, unknown enums, and truncation', () => {

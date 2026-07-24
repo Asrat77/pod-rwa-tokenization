@@ -46,6 +46,11 @@ const TREASURY_MOVEMENT_STATUSES = Object.freeze([
   'RETURNED',
 ]);
 
+// Byte order must match pod_rwa_common::MseRailKind and MseBeneficiaryStatus exactly.
+const MSE_RAIL_KINDS = Object.freeze(['SQUADS_FIAT_FORWARD', 'DIRECT_USDC']);
+
+const MSE_BENEFICIARY_STATUSES = Object.freeze(['ACTIVE', 'SUSPENDED']);
+
 const ACCOUNT_NAMES = Object.freeze([
   'DealTerms',
   'DealStateAccount',
@@ -53,6 +58,7 @@ const ACCOUNT_NAMES = Object.freeze([
   'InvestorDealPosition',
   'SettlementSnapshot',
   'TreasuryMovement',
+  'MseBeneficiary',
 ]);
 
 function sha256(value) {
@@ -140,6 +146,11 @@ function expectedVaultAccountAddress(name, decoded, programId) {
       Buffer.from('treasury_movement'),
       Buffer.from(decoded.dealId, 'hex'),
       Buffer.from([decoded.milestoneIndex]),
+    ];
+  } else if (name === 'MseBeneficiary') {
+    seeds = [
+      Buffer.from('mse-beneficiary'),
+      Buffer.from(decoded.entityHash, 'hex'),
     ];
   } else {
     throw new Error(`Unsupported vault PDA account: ${name}`);
@@ -284,8 +295,9 @@ function decodeDealTerms(value) {
     receiptTokenProgram: reader.pubkey('receiptTokenProgram'),
     subscriptionVault: reader.pubkey('subscriptionVault'),
     repaymentVault: reader.pubkey('repaymentVault'),
-    issuerTreasuryOwner: reader.pubkey('issuerTreasuryOwner'),
-    issuerTreasuryAta: reader.pubkey('issuerTreasuryAta'),
+    mseWalletOwner: reader.pubkey('mseWalletOwner'),
+    mseUsdcAta: reader.pubkey('mseUsdcAta'),
+    mseRailKind: reader.enum(MSE_RAIL_KINDS, 'mseRailKind'),
     servicerAuthority: reader.pubkey('servicerAuthority'),
     riskAuthority: reader.pubkey('riskAuthority'),
     complianceEscrowAta: reader.pubkey('complianceEscrowAta'),
@@ -422,6 +434,7 @@ function decodeTreasuryMovement(value) {
     dealId: reader.hash('dealId'),
     milestoneIndex: reader.u8('milestoneIndex'),
     status: reader.enum(TREASURY_MOVEMENT_STATUSES, 'status'),
+    railKind: reader.enum(MSE_RAIL_KINDS, 'railKind'),
     releasedUsdc: reader.u64('releasedUsdc'),
     releaseRecord: reader.pubkey('releaseRecord'),
     releaseSignatureHash: reader.hash('releaseSignatureHash'),
@@ -449,6 +462,24 @@ function decodeTreasuryMovement(value) {
   return result;
 }
 
+function decodeMseBeneficiary(value) {
+  const reader = new Reader(value, 'MseBeneficiary');
+  reader.discriminator();
+  const result = {
+    schemaVersion: reader.schemaVersion(),
+    entityHash: reader.hash('entityHash'),
+    walletOwner: reader.pubkey('walletOwner'),
+    usdcAta: reader.pubkey('usdcAta'),
+    railKind: reader.enum(MSE_RAIL_KINDS, 'railKind'),
+    status: reader.enum(MSE_BENEFICIARY_STATUSES, 'status'),
+    registeredAtSlot: reader.u64('registeredAtSlot'),
+    updatedAtSlot: reader.u64('updatedAtSlot'),
+    bump: reader.u8('bump'),
+  };
+  reader.reserved();
+  return result;
+}
+
 const DECODERS = Object.freeze({
   DealTerms: decodeDealTerms,
   DealStateAccount: decodeDealStateAccount,
@@ -456,6 +487,7 @@ const DECODERS = Object.freeze({
   InvestorDealPosition: decodeInvestorDealPosition,
   SettlementSnapshot: decodeSettlementSnapshot,
   TreasuryMovement: decodeTreasuryMovement,
+  MseBeneficiary: decodeMseBeneficiary,
 });
 
 function decodeAccount(name, value) {
@@ -472,6 +504,8 @@ module.exports = {
   ELIGIBILITY_STATUSES,
   RELEASE_GATE_KINDS,
   TREASURY_MOVEMENT_STATUSES,
+  MSE_RAIL_KINDS,
+  MSE_BENEFICIARY_STATUSES,
   ZERO_HEX_32,
   ZERO_PUBKEY,
   accountDiscriminator,
@@ -481,6 +515,7 @@ module.exports = {
   decodeDealStateAccount,
   decodeDealTerms,
   decodeInvestorDealPosition,
+  decodeMseBeneficiary,
   decodeReleaseMilestone,
   decodeSettlementSnapshot,
   decodeTreasuryMovement,

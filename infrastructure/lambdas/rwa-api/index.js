@@ -332,7 +332,7 @@ async function recoverRwaWallet(event, auth) {
   };
 }
 
-function emptyMovement(input, movementId, createdAt, auth) {
+function emptyMovement(input, movementId, createdAt, auth, railKind = 'SQUADS_FIAT_FORWARD') {
   return assertMovementShape({
     ...movementKey(movementId),
     entityType: 'RWA_TREASURY_MOVEMENT',
@@ -340,6 +340,7 @@ function emptyMovement(input, movementId, createdAt, auth) {
     dealId: assertText('dealId', input.dealId, 128),
     milestoneIndex: input.milestoneIndex,
     status: 'PROPOSED',
+    railKind,
     releasedUsdcBaseUnits: '0',
     grossUsdMinor: '0',
     netUsdMinor: '0',
@@ -347,7 +348,9 @@ function emptyMovement(input, movementId, createdAt, auth) {
     providerFeesUsdMinor: '0',
     bankFeesUsdMinor: '0',
     beneficiaryEntityHash: assertHash('beneficiaryEntityHash', input.beneficiaryEntityHash),
-    bankRouteHash: assertHash('bankRouteHash', input.bankRouteHash),
+    bankRouteHash: railKind === 'SQUADS_FIAT_FORWARD'
+      ? assertHash('bankRouteHash', input.bankRouteHash)
+      : null,
     createdBy: actorRef(auth.subject),
     createdAt,
     updatedAt: createdAt,
@@ -367,7 +370,6 @@ async function createFiatDisbursement(event, auth) {
     'beneficiaryEntityHash',
     input.beneficiaryEntityHash,
   );
-  const bankRouteHash = assertHash('bankRouteHash', input.bankRouteHash);
   const deal = await getItem({ PK: `RWA#DEAL#${input.dealId}`, SK: 'META' });
   if (!deal) throw new Error('The indexed on-chain deal was not found');
   if (!['FUNDED', 'ACTIVE'].includes(deal.state)) {
@@ -376,8 +378,14 @@ async function createFiatDisbursement(event, auth) {
   if (deal.beneficiaryEntityHash !== beneficiaryEntityHash) {
     throw new Error('Beneficiary does not match the immutable deal terms');
   }
-  if (deal.bankRouteHash !== bankRouteHash) {
-    throw new Error('Bank route does not match the immutable approved route');
+  const railKind = deal.mseRailKind || 'SQUADS_FIAT_FORWARD';
+  // The SWIFT/bank route is only meaningful for the Squads fiat-forward rail; a
+  // direct-USDC MSE has no off-chain bank leg to validate against.
+  if (railKind === 'SQUADS_FIAT_FORWARD') {
+    const bankRouteHash = assertHash('bankRouteHash', input.bankRouteHash);
+    if (deal.bankRouteHash !== bankRouteHash) {
+      throw new Error('Bank route does not match the immutable approved route');
+    }
   }
   const milestones = await queryIndex(
     'GSI1',
@@ -407,7 +415,7 @@ async function createFiatDisbursement(event, auth) {
   }
   const id = crypto.randomUUID();
   const movement = {
-    ...emptyMovement(input, id, nowIso(), auth),
+    ...emptyMovement(input, id, nowIso(), auth, railKind),
     plannedReleaseBaseUnits: assertAmount(
       'milestone.amountBaseUnits',
       milestone.amountBaseUnits,
@@ -528,6 +536,9 @@ async function recordConversion(event, auth) {
   requireRole(auth, ['TREASURY', 'SUPER_ADMIN']);
   const input = event.arguments.input;
   const movement = await requireMovement(input.movementId);
+  if (movement.railKind === 'DIRECT_USDC') {
+    throw new Error('Direct-USDC MSE movements have no conversion stage');
+  }
   if (movement.status !== 'USDC_RELEASED') throw new Error('USDC must be released before conversion');
   const gross = BigInt(assertAmount('grossUsdMinor', input.grossUsdMinor));
   const net = BigInt(assertAmount('netUsdMinor', input.netUsdMinor));
@@ -561,6 +572,9 @@ async function recordSwiftConfirmation(event, auth) {
   requireRole(auth, ['OPERATIONS', 'ADMIN', 'SUPER_ADMIN']);
   const input = event.arguments.input;
   const movement = await requireMovement(input.movementId);
+  if (movement.railKind === 'DIRECT_USDC') {
+    throw new Error('Direct-USDC MSE movements have no SWIFT stage');
+  }
   if (movement.status !== 'CONVERTED' && movement.status !== 'SWIFT_SENT') {
     throw new Error('Conversion must be recorded before SWIFT confirmation');
   }
@@ -584,8 +598,13 @@ async function reconcileTreasuryMovement(event, auth) {
   requireRole(auth, ['RISK', 'ADMIN', 'SUPER_ADMIN']);
   const { movementId, reconciliationEvidenceHash } = event.arguments.input;
   const movement = await requireMovement(movementId);
-  if (movement.status !== 'BANK_CONFIRMED') {
-    throw new Error('Bank confirmation is required before reconciliation');
+  // The Squads fiat-forward rail must clear bank confirmation first; a direct-USDC
+  // MSE movement reconciles straight from the finalized on-chain release.
+  const requiredStatus = movement.railKind === 'DIRECT_USDC'
+    ? 'USDC_RELEASED'
+    : 'BANK_CONFIRMED';
+  if (movement.status !== requiredStatus) {
+    throw new Error(`Reconciliation requires the movement to be ${requiredStatus}`);
   }
   const reconciler = actorRef(auth.subject);
   if ([movement.treasuryApprovedBy, movement.riskApprovedBy].includes(reconciler)) {
@@ -721,6 +740,9 @@ async function handler(event) {
       PK: `RWA#DEAL#${assertText('dealId', event.arguments.dealId, 128)}`,
       SK: 'SETTLEMENT',
     });
+  }
+  if (field === 'rwaMseBeneficiaries') {
+    return queryIndex('GSI1', 'GSI1PK', 'RWA#MSE_BENEFICIARIES');
   }
   throw new Error(`RWA resolver ${field || 'unknown'} is not implemented`);
 }

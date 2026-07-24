@@ -115,8 +115,9 @@ function mapDeal(termsAccount, stateAccount, context) {
     recoveryCutoffAt: timestampToIso(terms.recoveryCutoffAt),
     claimDeadlineAt: timestampToIso(terms.claimDeadlineAt),
     locked: terms.locked,
-    issuerTreasuryOwner: terms.issuerTreasuryOwner,
-    issuerTreasuryAta: terms.issuerTreasuryAta,
+    mseWalletOwner: terms.mseWalletOwner,
+    mseUsdcAta: terms.mseUsdcAta,
+    mseRailKind: terms.mseRailKind,
     chain,
     dealTermsChain: chainRef(termsAccount, context),
     dealTermsAccountHash: termsAccount.accountHash,
@@ -284,6 +285,7 @@ function mapTreasuryMovement(account, milestoneAccount, context) {
     dealId: movement.dealId,
     milestoneIndex: movement.milestoneIndex,
     status: movement.status,
+    railKind: movement.railKind,
     releasedUsdcBaseUnits: u64String(movement.releasedUsdc, 'releasedUsdc'),
     releaseRecord: movement.releaseRecord,
     releaseSignatureHash: nullableHash(movement.releaseSignatureHash),
@@ -309,6 +311,27 @@ function mapTreasuryMovement(account, milestoneAccount, context) {
     bankConfirmedAt: timestampToIso(movement.bankConfirmedAt, true),
     reconciledAt: timestampToIso(movement.reconciledAt, true),
     updatedAt: movementUpdatedAt(movement, milestoneAccount),
+    chain: chainRef(account, context),
+    ...mirrorMetadata(account),
+  };
+}
+
+function mapMseBeneficiary(account, context) {
+  const beneficiary = account.decoded;
+  return {
+    PK: `RWA#MSE#${beneficiary.entityHash}`,
+    SK: 'META',
+    GSI1PK: 'RWA#MSE_BENEFICIARIES',
+    GSI1SK: `${beneficiary.railKind}#${beneficiary.entityHash}`,
+    entityType: 'RWA_MSE_BENEFICIARY',
+    recordSource: 'SOLANA_FINALIZED',
+    entityHash: beneficiary.entityHash,
+    walletOwner: beneficiary.walletOwner,
+    usdcAta: beneficiary.usdcAta,
+    railKind: beneficiary.railKind,
+    status: beneficiary.status,
+    registeredAtSlot: u64String(beneficiary.registeredAtSlot, 'registeredAtSlot'),
+    updatedAtSlot: u64String(beneficiary.updatedAtSlot, 'updatedAtSlot'),
     chain: chainRef(account, context),
     ...mirrorMetadata(account),
   };
@@ -369,6 +392,9 @@ function buildMirrorItems(accountsByType, context) {
     const key = `${account.decoded.dealId}:${account.decoded.milestoneIndex}`;
     items.push(mapTreasuryMovement(account, milestoneByDealIndex.get(key), context));
   }
+  for (const account of accountsByType.MseBeneficiary || []) {
+    items.push(mapMseBeneficiary(account, context));
+  }
 
   return {
     items,
@@ -382,6 +408,7 @@ function buildMirrorItems(accountsByType, context) {
       positions: accountsByType.InvestorDealPosition.length,
       settlements: accountsByType.SettlementSnapshot.length,
       treasuryMovements: accountsByType.TreasuryMovement.length,
+      mseBeneficiaries: (accountsByType.MseBeneficiary || []).length,
     },
   };
 }
@@ -391,6 +418,7 @@ module.exports = {
   chainRef,
   mapDeal,
   mapMilestone,
+  mapMseBeneficiary,
   mapPosition,
   mapSettlement,
   mapTreasuryMovement,
