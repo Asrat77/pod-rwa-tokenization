@@ -43,15 +43,16 @@ non-reversible references to controlled off-chain records.
 
 | Account | PDA seeds | Purpose | Authorized mutation |
 |---|---|---|---|
-| `ProtocolConfig` | `protocol` | Governance, guardian, compliance and program bindings, pause flags | Governance; guardian can add a pause but cannot remove one |
+| `ProtocolConfig` | `protocol` | Governance, guardian, compliance and program bindings, `platform_treasury_authority` (the release proposer), pause flags | Governance; guardian can add a pause but cannot remove one |
 | `SettlementAssetConfig` | `asset`, settlement mint | Allowed mint, token program and decimals | Protocol governance |
-| `DealTerms` | `deal_terms`, deal id hash | Locked legal, party, valuation, route and economic terms | Governance in `DRAFT`; immutable after opening |
+| `MseBeneficiary` | `mse-beneficiary`, entity hash | A registered release destination: wallet owner, USDC ATA, `rail_kind` (`SquadsFiatForward`\|`DirectUsdc`) and `status` (`Active`\|`Suspended`) | Governance registers and may suspend; wallet rotation registers a new entity hash |
+| `DealTerms` | `deal_terms`, deal id hash | Locked legal, party, valuation, economic terms and the pinned MSE destination (`mse_wallet_owner`, `mse_usdc_ata`, `mse_rail_kind`) copied from an active registry entry | Governance in `DRAFT`; immutable after opening |
 | `DealStateAccount` | `deal_state`, deal id hash | Lifecycle and aggregate accounting; authority of both deal vaults | Program state machine only |
 | `Series` | `series`, deal id hash, series index | Receipt mint and issued/burned supply | Program state machine; V1 index is `0` |
 | `ReleaseMilestone` | `milestone`, deal id hash, index | Gate, allocation, schedule, risk approval and execution evidence | Governance configures in `DRAFT`; risk schedules; guardian cancels; program executes |
 | `InvestorDealPosition` | `position`, deal id hash, opaque investor id | Cap, eligibility, accepted terms and investor accounting | Compliance authority and investor operations |
 | `OperationReceipt` | operation-specific prefix, deal, actor/investor, nonce | Idempotency commitment for subscription, refund, repayment or redemption | Created once; matching replay is a no-op, conflict fails |
-| `TreasuryMovement` | `treasury_movement`, deal id hash, milestone index | One release-to-conversion-to-SWIFT evidence chain | Treasury records conversion/SWIFT; risk confirms; risk/governance reconciles |
+| `TreasuryMovement` | `treasury_movement`, deal id hash, milestone index | One release evidence chain carrying its `rail_kind`; the Squads rail records conversion/SWIFT/bank stages, the direct-USDC rail reconciles straight from release | Platform treasury records conversion/SWIFT; governance confirms/reconciles; direct-USDC skips the fiat stages |
 | `SettlementSnapshot` | `settlement`, deal id hash | Fixed supply, vault balance and waterfall pools | Created once when settlement conditions hold |
 
 Operation receipt prefixes are `subscription_receipt`, `refund_receipt`,

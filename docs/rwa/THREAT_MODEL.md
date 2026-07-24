@@ -23,7 +23,7 @@ recoverability without granting any single actor unilateral withdrawal power.
 | Oracle publisher → `pod_oracle` | Publisher is registered for revision publication | Publisher allowlist, append-only revisions, policy/content hashes |
 | `pod_oracle` → `pod_vault` | Gate is current, exact, unexpired, and `PASS` | Canonical head/revision derivation and full gate-field validation |
 | Investor → token programs | Mint, account owner, decimals and amount are exact | Checked Token/Token-2022 transfers |
-| Vault → issuer treasury | USDC reaches only the locked issuer ATA | Deal terms plus exact ATA/owner/mint validation |
+| Vault → MSE beneficiary | USDC reaches only the deal's terms-locked MSE ATA | Deal terms plus exact ATA/owner/mint validation, sourced from an active registry entry |
 | Treasury → provider/bank | Manual action matches approved movement | Dual approval, encrypted evidence, commitments, independent review |
 | Bank → AWS mirror | Confirmation belongs to the recorded movement | UETR/value-date/beneficiary/amount matching |
 | DynamoDB/indexer → user interface | Projection reflects finalized chain state | Slot/signature/account hash, reconciliation timestamp, chain remains authoritative |
@@ -34,8 +34,11 @@ recoverability without granting any single actor unilateral withdrawal power.
 | Threat | Preventive controls | Detection / response |
 |---|---|---|
 | Counterfeit USDC or token-program substitution | Settlement asset allowlist; exact mint, owner, token program and decimals stored in `DealTerms`; checked transfers | Transaction/account reconciliation; pause and reject manifest mismatch |
-| Treasury ATA substitution | Exact issuer Squads owner and ATA locked before opening; no operator-entered release destination | Compare finalized destination to deal terms; incident if mismatch |
-| Issuer/FiatBeneficiary conflation | Distinct entity hashes and client validation; beneficiary has no token account | Configuration validation and acceptance test |
+| MSE ATA substitution | Exact MSE wallet owner and ATA locked before opening from the registry; no operator-entered release destination | Compare finalized destination to deal terms; incident if mismatch |
+| Issuer/MSE-beneficiary conflation | Distinct entity hashes and client validation; on the Squads rail the fiat beneficiary has no token account | Configuration validation and acceptance test |
+| Malicious or suspended MSE registration | Only governance registers or suspends `MseBeneficiary`; `create_deal` requires an `Active` entry and re-validates the ATA mint/owner; wallet rotation forces a new entity hash | Alert on registry writes and on deals pinning a newly-registered beneficiary |
+| Wrong-rail evidence injection | `rail_kind` is copied from the registry into the movement; direct-USDC movements reject conversion/SWIFT/bank stages, Squads movements require the full chain before reconcile | Reject and alert on any stage/rail mismatch |
+| Third-party MSE forced to co-sign or blocked | Releases are proposed only by `platform_treasury_authority`, decoupled from the destination; the MSE is a passive recipient | Alert on release proposer ≠ platform treasury authority |
 | Oracle fabricates a release | Publisher can only append oracle records; separate risk signer and delay; vault has fixed destination | Alert on authority collision or release without risk approval |
 | Stale, failed, or corrected gate replay | Canonical head and exact revision/hash/content/decision/expiry checks | Gate-correction and expiry tests; cancel queued release |
 | Oracle or RPC reorg/finality error | Financial workflow records finalized slot and signature; indexer never treats processed state as final | Reconcile account hash at finalized commitment; quarantine divergence |

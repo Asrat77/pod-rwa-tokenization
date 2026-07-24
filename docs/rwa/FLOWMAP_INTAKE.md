@@ -102,12 +102,13 @@ role names, commitment methods, and approved process structure.
 |---|---|
 | Issuer legal reference | `DealTerms.issuer_entity_hash` / `IssuerV1` |
 | Servicer legal reference | `DealTerms.servicer_entity_hash` / `ServicerV1` |
-| FiatBeneficiary reference | `DealTerms.beneficiary_entity_hash` / `FiatBeneficiaryV1` |
+| MSE beneficiary reference | `DealTerms.beneficiary_entity_hash` / `MseBeneficiary.entity_hash` |
 | Financing contract | `DealTerms.source_contract_hash` |
 | Document bundle | `DealTerms.document_bundle_hash` |
-| Approved beneficiary route | `DealTerms.bank_route_hash` |
-| Issuer Squads vault PDA | `DealTerms.issuer_treasury_owner` |
-| Issuer USDC ATA | `DealTerms.issuer_treasury_ata` |
+| Approved beneficiary route (Squads rail only) | `DealTerms.bank_route_hash` |
+| MSE wallet owner | `DealTerms.mse_wallet_owner` (from `MseBeneficiary.wallet_owner`) |
+| MSE USDC ATA | `DealTerms.mse_usdc_ata` (from `MseBeneficiary.usdc_ata`) |
+| MSE rail kind | `DealTerms.mse_rail_kind` (from `MseBeneficiary.rail_kind`) |
 | Risk signer | `DealTerms.risk_authority` |
 | Receipt recovery Squads | `ComplianceConfig.recovery_authority`, receipt mint `PermanentDelegate`, and signed deployment manifest |
 | Governed burn authority | Receipt mint `PermissionedBurn` authority set to the `TransferPolicy` PDA |
