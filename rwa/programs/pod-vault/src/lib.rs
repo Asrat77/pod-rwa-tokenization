@@ -16,8 +16,8 @@ use anchor_spl::token_interface::{
 use pod_compliance::BurnPurpose;
 use pod_rwa_common::{
     checked_bps, checked_coupon, checked_pro_rata, domain_hash, DealState, EligibilityStatus,
-    ReleaseGateKind, TransferPolicyMode, TreasuryMovementStatus, ACCOUNT_SCHEMA_V1,
-    BPS_DENOMINATOR,
+    MseBeneficiaryStatus, MseRailKind, ReleaseGateKind, TransferPolicyMode,
+    TreasuryMovementStatus, ACCOUNT_SCHEMA_V1, BPS_DENOMINATOR,
 };
 
 mod errors;
@@ -137,6 +137,65 @@ pub mod pod_vault {
             token_program: asset.token_program,
             decimals: asset.decimals,
             enabled,
+        });
+        Ok(())
+    }
+
+    pub fn register_mse_beneficiary(
+        ctx: Context<RegisterMseBeneficiary>,
+        args: RegisterMseBeneficiaryArgs,
+    ) -> Result<()> {
+        require_keys_eq!(
+            ctx.accounts.governance.key(),
+            ctx.accounts.protocol_config.governance,
+            VaultError::Unauthorized
+        );
+        require!(
+            args.entity_hash != [0u8; 32]
+                && args.wallet_owner != Pubkey::default()
+                && args.usdc_ata != Pubkey::default(),
+            VaultError::InvalidTerms
+        );
+
+        let slot = Clock::get()?.slot;
+        let beneficiary = &mut ctx.accounts.mse_beneficiary;
+        beneficiary.schema_version = ACCOUNT_SCHEMA_V1;
+        beneficiary.entity_hash = args.entity_hash;
+        beneficiary.wallet_owner = args.wallet_owner;
+        beneficiary.usdc_ata = args.usdc_ata;
+        beneficiary.rail_kind = args.rail_kind;
+        beneficiary.status = MseBeneficiaryStatus::Active;
+        beneficiary.registered_at_slot = slot;
+        beneficiary.updated_at_slot = slot;
+        beneficiary.bump = ctx.bumps.mse_beneficiary;
+        beneficiary.reserved = [0; pod_rwa_common::RESERVED_ACCOUNT_BYTES];
+
+        emit!(MseBeneficiaryRegistered {
+            entity_hash: args.entity_hash,
+            wallet_owner: args.wallet_owner,
+            usdc_ata: args.usdc_ata,
+            rail_kind: args.rail_kind,
+        });
+        Ok(())
+    }
+
+    pub fn set_mse_beneficiary_status(
+        ctx: Context<SetMseBeneficiaryStatus>,
+        status: MseBeneficiaryStatus,
+    ) -> Result<()> {
+        require_keys_eq!(
+            ctx.accounts.governance.key(),
+            ctx.accounts.protocol_config.governance,
+            VaultError::Unauthorized
+        );
+
+        let beneficiary = &mut ctx.accounts.mse_beneficiary;
+        beneficiary.status = status;
+        beneficiary.updated_at_slot = Clock::get()?.slot;
+
+        emit!(MseBeneficiaryStatusChanged {
+            entity_hash: beneficiary.entity_hash,
+            status,
         });
         Ok(())
     }
@@ -1345,6 +1404,14 @@ pub struct SetPauseFlagsArgs {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct RegisterMseBeneficiaryArgs {
+    pub entity_hash: [u8; 32],
+    pub wallet_owner: Pubkey,
+    pub usdc_ata: Pubkey,
+    pub rail_kind: MseRailKind,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct CreateDealArgs {
     pub deal_id: [u8; 32],
     pub issuer_entity_hash: [u8; 32],
@@ -1462,6 +1529,37 @@ pub struct RegisterSettlementAsset<'info> {
     #[account(mut)]
     pub governance: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(args: RegisterMseBeneficiaryArgs)]
+pub struct RegisterMseBeneficiary<'info> {
+    #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
+    pub protocol_config: Account<'info, ProtocolConfig>,
+    #[account(
+        init_if_needed,
+        payer = governance,
+        space = MSE_BENEFICIARY_SPACE,
+        seeds = [b"mse-beneficiary", args.entity_hash.as_ref()],
+        bump
+    )]
+    pub mse_beneficiary: Account<'info, MseBeneficiary>,
+    #[account(mut)]
+    pub governance: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SetMseBeneficiaryStatus<'info> {
+    #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
+    pub protocol_config: Account<'info, ProtocolConfig>,
+    #[account(
+        mut,
+        seeds = [b"mse-beneficiary", mse_beneficiary.entity_hash.as_ref()],
+        bump = mse_beneficiary.bump
+    )]
+    pub mse_beneficiary: Account<'info, MseBeneficiary>,
+    pub governance: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -2964,6 +3062,20 @@ pub struct ProtocolInitialized {
 }
 
 #[event]
+pub struct MseBeneficiaryRegistered {
+    pub entity_hash: [u8; 32],
+    pub wallet_owner: Pubkey,
+    pub usdc_ata: Pubkey,
+    pub rail_kind: MseRailKind,
+}
+
+#[event]
+pub struct MseBeneficiaryStatusChanged {
+    pub entity_hash: [u8; 32],
+    pub status: MseBeneficiaryStatus,
+}
+
+#[event]
 pub struct PauseFlagsChanged {
     pub subscriptions: bool,
     pub releases: bool,
@@ -3156,5 +3268,24 @@ mod unit_tests {
         let right = checked_pro_rata(15_000_000, pool, 30_000_000).unwrap();
         assert!(left + right <= pool);
         assert_eq!(pool - left - right, 1);
+    }
+
+    #[test]
+    fn mse_beneficiary_serializes_within_allocated_space() {
+        let beneficiary = MseBeneficiary {
+            schema_version: ACCOUNT_SCHEMA_V1,
+            entity_hash: [7u8; 32],
+            wallet_owner: Pubkey::new_from_array([9u8; 32]),
+            usdc_ata: Pubkey::new_from_array([11u8; 32]),
+            rail_kind: MseRailKind::DirectUsdc,
+            status: MseBeneficiaryStatus::Suspended,
+            registered_at_slot: u64::MAX,
+            updated_at_slot: u64::MAX,
+            bump: 255,
+            reserved: [0; pod_rwa_common::RESERVED_ACCOUNT_BYTES],
+        };
+        let mut bytes = Vec::new();
+        beneficiary.serialize(&mut bytes).unwrap();
+        assert!(bytes.len() + 8 <= MSE_BENEFICIARY_SPACE);
     }
 }

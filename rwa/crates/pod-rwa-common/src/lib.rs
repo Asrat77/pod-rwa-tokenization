@@ -160,6 +160,42 @@ pub enum TreasuryMovementStatus {
     Returned,
 }
 
+/// Distinguishes how a deal's terms-locked MSE beneficiary receives the released
+/// stablecoin. The platform's own MSE takes custody in a Squads vault and forwards
+/// USD over SWIFT off-chain (the full evidence chain); a third-party MSE receives
+/// USDC directly into its registered wallet and has no conversion or SWIFT leg.
+#[derive(
+    AnchorSerialize,
+    AnchorDeserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+)]
+pub enum MseRailKind {
+    #[default]
+    SquadsFiatForward,
+    DirectUsdc,
+}
+
+#[derive(
+    AnchorSerialize,
+    AnchorDeserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+)]
+pub enum MseBeneficiaryStatus {
+    #[default]
+    Active,
+    Suspended,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ContentRef {
     pub address: Pubkey,
@@ -244,5 +280,19 @@ mod tests {
             domain_hash(RESULT_HASH_DOMAIN, payload),
             domain_hash(TERMS_HASH_DOMAIN, payload)
         );
+    }
+
+    #[test]
+    fn mse_enums_keep_stable_discriminants() {
+        fn encoded<T: AnchorSerialize>(value: T) -> Vec<u8> {
+            let mut bytes = Vec::new();
+            value.serialize(&mut bytes).unwrap();
+            bytes
+        }
+
+        assert_eq!(encoded(MseRailKind::SquadsFiatForward), vec![0]);
+        assert_eq!(encoded(MseRailKind::DirectUsdc), vec![1]);
+        assert_eq!(encoded(MseBeneficiaryStatus::Active), vec![0]);
+        assert_eq!(encoded(MseBeneficiaryStatus::Suspended), vec![1]);
     }
 }

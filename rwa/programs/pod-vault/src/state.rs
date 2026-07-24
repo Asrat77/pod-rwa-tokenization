@@ -1,11 +1,12 @@
 use anchor_lang::prelude::*;
 use pod_rwa_common::{
-    DealState, EligibilityStatus, ReleaseGateKind, TreasuryMovementStatus,
-    ACCOUNT_SCHEMA_V1, RESERVED_ACCOUNT_BYTES,
+    DealState, EligibilityStatus, MseBeneficiaryStatus, MseRailKind, ReleaseGateKind,
+    TreasuryMovementStatus, ACCOUNT_SCHEMA_V1, RESERVED_ACCOUNT_BYTES,
 };
 
 pub const PROTOCOL_CONFIG_SPACE: usize = 8 + 512;
 pub const SETTLEMENT_ASSET_SPACE: usize = 8 + 256;
+pub const MSE_BENEFICIARY_SPACE: usize = 8 + 256;
 pub const DEAL_TERMS_SPACE: usize = 8 + 1_536;
 pub const DEAL_STATE_SPACE: usize = 8 + 768;
 pub const SERIES_SPACE: usize = 8 + 512;
@@ -61,6 +62,24 @@ pub struct SettlementAssetConfig {
     pub token_program: Pubkey,
     pub decimals: u8,
     pub enabled: bool,
+    pub bump: u8,
+    pub reserved: [u8; RESERVED_ACCOUNT_BYTES],
+}
+
+/// Governance-registered destination for released stablecoin. Each deal pins exactly
+/// one active beneficiary at terms lock; the platform maintains many. The `rail_kind`
+/// determines whether releases feed a Squads vault (with an off-chain USD/SWIFT
+/// forward) or land directly in a third-party MSE wallet.
+#[account]
+pub struct MseBeneficiary {
+    pub schema_version: u16,
+    pub entity_hash: [u8; 32],
+    pub wallet_owner: Pubkey,
+    pub usdc_ata: Pubkey,
+    pub rail_kind: MseRailKind,
+    pub status: MseBeneficiaryStatus,
+    pub registered_at_slot: u64,
+    pub updated_at_slot: u64,
     pub bump: u8,
     pub reserved: [u8; RESERVED_ACCOUNT_BYTES],
 }
