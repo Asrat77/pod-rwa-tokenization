@@ -1,0 +1,37 @@
+[package]
+name = "pod-compliance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "POD RWA investor eligibility, wallet binding, transfer policy, and recovery program"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "pod_compliance"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = [
+  "anchor-lang/idl-build",
+  "anchor-spl/idl-build",
+  "pod-rwa-common/idl-build",
+]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang.workspace = true
+anchor-spl.workspace = true
+pod-rwa-common = { path = "../../crates/pod-rwa-common" }
+spl-discriminator = "0.4.1"
+spl-tlv-account-resolution = "0.9.0"
+spl-transfer-hook-interface = "0.9.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
