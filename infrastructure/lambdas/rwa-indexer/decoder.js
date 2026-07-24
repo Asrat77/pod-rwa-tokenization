@@ -282,6 +282,8 @@ function decodeDealTerms(value) {
     settlementDecimals: reader.u8('settlementDecimals'),
     receiptMint: reader.pubkey('receiptMint'),
     receiptTokenProgram: reader.pubkey('receiptTokenProgram'),
+    subscriptionVault: reader.pubkey('subscriptionVault'),
+    repaymentVault: reader.pubkey('repaymentVault'),
     issuerTreasuryOwner: reader.pubkey('issuerTreasuryOwner'),
     issuerTreasuryAta: reader.pubkey('issuerTreasuryAta'),
     servicerAuthority: reader.pubkey('servicerAuthority'),

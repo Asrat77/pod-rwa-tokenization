@@ -82,7 +82,7 @@ function dealTermsFixture() {
   for (let seed = 1; seed <= 11; seed += 1) writer.hash(seed);
   for (let seed = 12; seed <= 16; seed += 1) writer.pubkey(seed);
   writer.u8(6);
-  for (let seed = 17; seed <= 23; seed += 1) writer.pubkey(seed);
+  for (let seed = 17; seed <= 25; seed += 1) writer.pubkey(seed);
   return writer
     .i64(1_700_000_000)
     .i64(1_700_100_000)
@@ -98,7 +98,7 @@ function dealTermsFixture() {
     .bool(true)
     .u8(254)
     .reserved()
-    .finish(666);
+    .finish(602);
 }
 
 function dealStateFixture() {
@@ -271,7 +271,10 @@ test('decodes DealTerms V1 with allocated trailing space', () => {
   assert.equal(decoded.settlementMint, pubkey(15));
   assert.equal(decoded.settlementTokenProgram, pubkey(16));
   assert.equal(decoded.receiptMint, pubkey(17));
-  assert.equal(decoded.issuerTreasuryAta, pubkey(20));
+  assert.equal(decoded.subscriptionVault, pubkey(19));
+  assert.equal(decoded.repaymentVault, pubkey(20));
+  assert.equal(decoded.issuerTreasuryOwner, pubkey(21));
+  assert.equal(decoded.issuerTreasuryAta, pubkey(22));
   assert.equal(decoded.settlementDecimals, 6);
   assert.equal(decoded.minimumRaise, 20_000_000n);
   assert.equal(decoded.hardCap, 30_000_000n);
