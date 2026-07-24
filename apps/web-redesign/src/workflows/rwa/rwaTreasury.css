@@ -1,0 +1,93 @@
+.rwa-ops { max-width: 1440px; }
+.rwa-ops__header { display: flex; align-items: end; justify-content: space-between; gap: 36px; padding: 24px 0 28px; border-bottom: 1px solid var(--border, #d9ded7); }
+.rwa-ops__header h1 { margin: 5px 0 8px; font: 600 38px/1.05 Georgia, serif; letter-spacing: -.03em; }
+.rwa-ops__header p { max-width: 760px; margin: 0; color: var(--muted, #687068); font-size: 13px; }
+.rwa-kicker { color: #41614a; font-size: 9px; font-weight: 800; letter-spacing: .18em; }
+.rwa-role { min-width: 170px; padding: 14px 16px; display: grid; grid-template-columns: 25px 1fr; align-items: center; border: 1px solid #bac4b9; background: #edf1e9; }
+.rwa-role svg { grid-row: 1 / 3; color: #31513b; }
+.rwa-role span { font-size: 7px; letter-spacing: .14em; color: #778079; }
+.rwa-role strong { font-size: 11px; }
+.rwa-error { margin: 14px 0; padding: 12px; display: flex; align-items: center; gap: 8px; color: #8e3129; background: #fff1ef; border-left: 3px solid; font-size: 11px; }
+.rwa-error svg { width: 17px; }
+.rwa-deal-strip { display: flex; gap: 8px; padding: 18px 0; overflow-x: auto; }
+.rwa-deal-strip > button { min-width: 210px; display: flex; flex-direction: column; align-items: start; gap: 3px; padding: 13px 15px; color: #313b33; border: 1px solid #ccd2ca; background: #fff; text-align: left; }
+.rwa-deal-strip > button.active { color: #fff; border-color: #263f2f; background: #263f2f; }
+.rwa-deal-strip button span { font: 8px/1 monospace; opacity: .66; }
+.rwa-deal-strip button strong { font-size: 12px; }
+.rwa-deal-strip button small { font-size: 7px; letter-spacing: .13em; opacity: .7; }
+.rwa-deal-strip .rwa-refresh { min-width: 43px; width: 43px; align-items: center; justify-content: center; margin-left: auto; }
+.rwa-deal-strip .rwa-refresh svg { width: 16px; }
+.rwa-ledger-summary { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #d5dbd3; background: #fff; }
+.rwa-summary { min-height: 85px; display: flex; align-items: center; gap: 12px; padding: 17px; border-right: 1px solid #d5dbd3; }
+.rwa-summary:last-child { border-right: 0; }
+.rwa-summary > span { width: 32px; height: 32px; display: grid; place-items: center; color: #35523e; border-radius: 50%; background: #e6eee5; }
+.rwa-summary svg { width: 15px; }
+.rwa-summary div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.rwa-summary small { color: #747d75; font-size: 8px; text-transform: uppercase; letter-spacing: .1em; }
+.rwa-summary strong { font: 600 15px/1.2 Georgia, serif; }
+.rwa-summary .mono { font: 9px/1.2 monospace; }
+.rwa-ops__grid { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(340px, .8fr); gap: 18px; margin-top: 18px; }
+.rwa-tranches, .rwa-action-panel, .rwa-repayment { padding: 22px; }
+.rwa-section-title { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 20px; }
+.rwa-section-title > div { display: flex; align-items: center; gap: 10px; }
+.rwa-section-title > div > span { width: 24px; height: 24px; display: grid; place-items: center; color: white; border-radius: 50%; background: #253e2e; font: 8px/1 monospace; }
+.rwa-section-title h2 { margin: 0; font: 600 22px/1 Georgia, serif; }
+.rwa-section-title > small { color: #778078; font-size: 7px; letter-spacing: .12em; }
+.rwa-tranche-list { display: grid; gap: 5px; }
+.rwa-tranche-list > button { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px; padding: 14px 12px; color: #263128; border: 1px solid transparent; border-bottom-color: #e0e4df; background: transparent; text-align: left; }
+.rwa-tranche-list > button:hover, .rwa-tranche-list > button.active { border-color: #b9c5b9; background: #f2f6ef; }
+.rwa-tranche-index { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid #aeb8ae; border-radius: 50%; font: 9px/1 monospace; }
+.rwa-tranche-list button div { display: flex; flex-direction: column; gap: 3px; }
+.rwa-tranche-list button div small { color: #42604a; font-size: 7px; font-weight: 800; letter-spacing: .13em; }
+.rwa-tranche-list button div strong { font: 600 14px/1.2 Georgia, serif; }
+.rwa-tranche-list button p { margin: 0; color: #7b837c; font-size: 8px; }
+.rwa-status { padding: 5px 7px; color: #606861; background: #e8ebe6; font-size: 7px; letter-spacing: .1em; }
+.rwa-status--reconciled { color: #295338; background: #dcecdf; }
+.rwa-status--failed, .rwa-status--returned { color: #8d332b; background: #f1ddda; }
+.rwa-action-form h3, .rwa-complete h3 { margin: 0 0 6px; font: 600 20px/1.1 Georgia, serif; }
+.rwa-action-form > p, .rwa-approval > p, .rwa-complete p { margin: 0 0 17px; color: #69726b; font-size: 10px; line-height: 1.5; }
+.rwa-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rwa-form-grid label { color: #687169; font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.rwa-form-grid input { width: 100%; margin-top: 5px; padding: 9px 10px; color: #263128; border: 1px solid #c7cec6; background: #fbfcf9; font: 10px/1.2 monospace; outline: none; }
+.rwa-form-grid input:focus { border-color: #41614a; box-shadow: 0 0 0 2px #41614a18; }
+.rwa-action-form .primary, .rwa-approval .primary { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; }
+.rwa-action-form .primary svg, .rwa-approval .primary svg { width: 16px; }
+.rwa-commitment { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; padding: 9px; background: #f0f3ee; }
+.rwa-commitment small { color: #6d766f; font-size: 7px; text-transform: uppercase; letter-spacing: .1em; }
+.rwa-commitment code { overflow: hidden; color: #354239; font-size: 8px; text-overflow: ellipsis; }
+.rwa-approval > div { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.rwa-approval > div > span { padding: 14px; display: grid; grid-template-columns: 22px 1fr; border: 1px solid #d1d7d0; }
+.rwa-approval > div > span svg { grid-row: 1 / 3; width: 16px; color: #a27631; }
+.rwa-approval > div > span.done svg { color: #31563b; }
+.rwa-approval span small { color: #788079; font-size: 7px; text-transform: uppercase; }
+.rwa-approval span strong { font-size: 9px; }
+.rwa-complete { padding: 28px 15px; text-align: center; }
+.rwa-complete > svg { color: #31563b; }
+.rwa-complete span { color: #31563b; font-size: 9px; font-weight: 700; }
+.rwa-repayment { margin-top: 18px; }
+.rwa-repayment .rwa-action-form { display: grid; grid-template-columns: .65fr 1.35fr 180px; gap: 18px; align-items: end; }
+.rwa-repayment .rwa-action-form > h3, .rwa-repayment .rwa-action-form > p { grid-column: 1; }
+.rwa-repayment .rwa-action-form .rwa-form-grid { grid-column: 2; grid-row: 1 / 4; }
+.rwa-repayment .rwa-action-form > .primary { grid-column: 3; grid-row: 2; margin: 0; }
+.rwa-squads-link { grid-column: 3; grid-row: 3; display: inline-flex; justify-content: center; align-items: center; gap: 5px; color: #365340; font-size: 8px; }
+.rwa-squads-link svg { width: 12px; }
+.rwa-loading { min-height: 50vh; display: flex; align-items: center; justify-content: center; gap: 9px; color: #707970; font-size: 11px; }
+.rwa-spin { animation: rwa-spin .9s linear infinite; }
+@keyframes rwa-spin { to { transform: rotate(360deg); } }
+@media (max-width: 1050px) {
+  .rwa-ledger-summary { grid-template-columns: 1fr 1fr; }
+  .rwa-summary:nth-child(2) { border-right: 0; }
+  .rwa-summary:nth-child(-n+2) { border-bottom: 1px solid #d5dbd3; }
+  .rwa-ops__grid { grid-template-columns: 1fr; }
+  .rwa-repayment .rwa-action-form { display: block; }
+  .rwa-repayment .rwa-action-form > * { margin-top: 12px; }
+}
+@media (max-width: 650px) {
+  .rwa-ops__header { align-items: start; flex-direction: column; }
+  .rwa-role { width: 100%; }
+  .rwa-ledger-summary { grid-template-columns: 1fr; }
+  .rwa-summary { border-right: 0; border-bottom: 1px solid #d5dbd3; }
+  .rwa-form-grid { grid-template-columns: 1fr; }
+  .rwa-tranche-list > button { grid-template-columns: 28px 1fr; }
+  .rwa-tranche-list .rwa-status { grid-column: 2; width: max-content; }
+}
