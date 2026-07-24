@@ -1,0 +1,12 @@
+{
+  "name": "@turmi/rwa-indexer-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  }
+}
