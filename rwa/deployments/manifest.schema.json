@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pod.example/schemas/rwa-deployment-manifest-v1.json",
+  "title": "POD RWA deployment manifest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "cluster",
+    "programs",
+    "settlementAssets",
+    "authorities"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "cluster": { "enum": ["localnet", "devnet", "mainnet-beta"] },
+    "genesisHash": { "type": ["string", "null"] },
+    "programs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["podOracle", "podCompliance", "podVault"],
+      "properties": {
+        "podOracle": { "type": "string" },
+        "podCompliance": { "type": "string" },
+        "podVault": { "type": "string" }
+      }
+    },
+    "settlementAssets": { "type": "object" },
+    "authorities": {
+      "type": "object",
+      "required": [
+        "protocolGovernanceSquadsVault",
+        "issuerTreasurySquadsVault",
+        "riskSquadsVault",
+        "guardian"
+      ],
+      "properties": {
+        "protocolGovernanceSquadsVault": { "type": ["string", "null"] },
+        "issuerTreasurySquadsVault": { "type": ["string", "null"] },
+        "riskSquadsVault": { "type": ["string", "null"] },
+        "guardian": { "type": ["string", "null"] }
+      }
+    },
+    "generatedAt": { "type": ["string", "null"] },
+    "sourceCommit": { "type": ["string", "null"] },
+    "binaryHashes": { "type": "object" },
+    "idlHashes": { "type": "object" },
+    "signedBy": { "type": ["string", "null"] },
+    "signature": { "type": ["string", "null"] }
+  }
+}

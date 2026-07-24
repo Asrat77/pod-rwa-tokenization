@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "currency": "USDC",
+  "minimumRaiseBaseUnits": "20000000",
+  "hardCapBaseUnits": "30000000",
+  "perInvestorCapBaseUnits": "15000000",
+  "couponBps": 1000,
+  "feesBps": 0,
+  "subscriptionWindowSeconds": 604800,
+  "maturitySecondsAfterFunding": 1209600,
+  "claimWindowSeconds": 2592000,
+  "milestones": [
+    { "index": 0, "gate": "CAPITAL_CLOSE", "allocationBps": 3000 },
+    { "index": 1, "gate": "T1_PASS", "allocationBps": 3000 },
+    { "index": 2, "gate": "T2_PASS", "allocationBps": 3000 },
+    { "index": 3, "gate": "T3_PASS", "allocationBps": 1000 }
+  ],
+  "deals": [
+    {
+      "fixtureId": "POD-RWA-2026-006",
+      "assetSetMembers": ["POD-ET-FARM-006"],
+      "displayName": "POD Exp Farm UKE001"
+    },
+    {
+      "fixtureId": "POD-RWA-2026-007",
+      "assetSetMembers": ["POD-ET-FARM-007"],
+      "displayName": "Desa Main Farm"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+schemaVersion: 1
+issuer:
+  legalName: ""
+  jurisdiction: "US"
+  stateOfIncorporation: ""
+  entityReference: ""
+treasury:
+  squadsMultisig: ""
+  squadsVaultIndex: 0
+  squadsVaultPda: ""
+  usdcAta: ""
+conversion:
+  providerName: ""
+  providerEntityReference: ""
+  approvalRoles:
+    - TREASURY
+    - RISK
+  feePolicy: ""
+swift:
+  sendingBankReference: ""
+  supportedBeneficiaryJurisdictions: []
+  evidenceFields:
+    - UETR
+    - VALUE_DATE
+    - GROSS_USD
+    - NET_USD
+    - BANK_FEES
+    - CONFIRMATION_DOCUMENT_HASH
+beneficiaryTemplate:
+  entityReference: ""
+  jurisdiction: ""
+  bankRouteHash: ""
+repayment:
+  authorizedPayerTypes:
+    - FIAT_BENEFICIARY
+    - BUYER
+    - SERVICER
+  conversionProviderName: ""
+  reconciliationPolicy: ""
+notes: "Do not include account numbers, credentials, personal data, or private keys."

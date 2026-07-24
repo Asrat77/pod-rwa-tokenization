@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "cluster": "localnet",
+  "genesisHash": null,
+  "programs": {
+    "podOracle": "9xcHEJ1EdSXZWqxsyzZ3CZChKCHJR1upJm1D9f6YhP8E",
+    "podCompliance": "6UtA4sTWNLps8y73GJCXSAy6wi28sn1oC3tqGA74rmQj",
+    "podVault": "GREmSWM6ugPjoKeA6tr9RxkhWHvToiYnNpV1dwNySWCn"
+  },
+  "settlementAssets": {
+    "USDC_FIXTURE": {
+      "mint": null,
+      "decimals": 6,
+      "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    }
+  },
+  "authorities": {
+    "protocolGovernanceSquadsVault": null,
+    "issuerTreasurySquadsVault": null,
+    "riskSquadsVault": null,
+    "guardian": null
+  }
+}

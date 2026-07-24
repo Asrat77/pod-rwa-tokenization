@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "cluster": "devnet",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+  "programs": {
+    "podOracle": "9xcHEJ1EdSXZWqxsyzZ3CZChKCHJR1upJm1D9f6YhP8E",
+    "podCompliance": "6UtA4sTWNLps8y73GJCXSAy6wi28sn1oC3tqGA74rmQj",
+    "podVault": "GREmSWM6ugPjoKeA6tr9RxkhWHvToiYnNpV1dwNySWCn"
+  },
+  "settlementAssets": {
+    "USDC": {
+      "mint": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+      "decimals": 6,
+      "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    }
+  },
+  "authorities": {
+    "protocolGovernanceSquadsVault": null,
+    "issuerTreasurySquadsVault": null,
+    "riskSquadsVault": null,
+    "guardian": null
+  },
+  "generatedAt": null,
+  "sourceCommit": null,
+  "binaryHashes": {},
+  "idlHashes": {},
+  "signedBy": null,
+  "signature": null
+}

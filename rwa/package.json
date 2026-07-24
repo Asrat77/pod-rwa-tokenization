@@ -1,0 +1,17 @@
+{
+  "name": "@pod/rwa-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20 <26"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @pod/rwa-client",
+    "test": "npm run test --workspace @pod/rwa-client",
+    "typecheck": "npm run typecheck --workspace @pod/rwa-client"
+  },
+  "workspaces": [
+    "client"
+  ]
+}

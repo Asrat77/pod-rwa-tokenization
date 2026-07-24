@@ -1,0 +1,30 @@
+[toolchain]
+anchor_version = "1.1.2"
+solana_version = "3.1.10"
+package_manager = "npm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+pod_oracle = "9xcHEJ1EdSXZWqxsyzZ3CZChKCHJR1upJm1D9f6YhP8E"
+pod_compliance = "6UtA4sTWNLps8y73GJCXSAy6wi28sn1oC3tqGA74rmQj"
+pod_vault = "GREmSWM6ugPjoKeA6tr9RxkhWHvToiYnNpV1dwNySWCn"
+
+[programs.devnet]
+pod_oracle = "9xcHEJ1EdSXZWqxsyzZ3CZChKCHJR1upJm1D9f6YhP8E"
+pod_compliance = "6UtA4sTWNLps8y73GJCXSAy6wi28sn1oC3tqGA74rmQj"
+pod_vault = "GREmSWM6ugPjoKeA6tr9RxkhWHvToiYnNpV1dwNySWCn"
+
+[provider]
+cluster = "localnet"
+wallet = "deployments/private/deployer.json"
+
+[test]
+startup_wait = 10000
+shutdown_wait = 2000
+upgradeable = true
+
+[scripts]
+test = "npm run test"
