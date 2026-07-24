@@ -27,11 +27,14 @@ export interface ChainReference {
   lastReconciledAt: string;
 }
 
+export type RwaMseRailKind = "SQUADS_FIAT_FORWARD" | "DIRECT_USDC";
+
 export interface RwaDeal {
   id: string;
   displayName: string;
   issuerEntityHash: string;
   beneficiaryEntityHash: string;
+  mseRailKind?: RwaMseRailKind | null;
   assetSetHash: string;
   documentBundleHash: string;
   termsHash: string;

@@ -18,12 +18,14 @@ import { usePermissions } from '../../permissions';
 import './rwaTreasury.css';
 
 type Notify = (message: string) => void;
+type RailKind = 'SQUADS_FIAT_FORWARD' | 'DIRECT_USDC';
 type Deal = {
   id: string;
   displayName: string;
   state: string;
   beneficiaryEntityHash: string;
   bankRouteHash: string;
+  mseRailKind?: RailKind | null;
   hardCapBaseUnits: string;
   fundedBaseUnits: string;
   releasedBaseUnits: string;
@@ -44,6 +46,7 @@ type Movement = {
   dealId: string;
   milestoneIndex: number;
   status: string;
+  railKind?: RailKind | null;
   releasedUsdcBaseUnits: string;
   grossUsdMinor: string;
   netUsdMinor: string;
@@ -62,7 +65,7 @@ type Movement = {
 
 const DEALS = `query RwaOperationsDeals {
   rwaDeals {
-    id displayName state beneficiaryEntityHash bankRouteHash settlementMint
+    id displayName state beneficiaryEntityHash bankRouteHash mseRailKind settlementMint
     hardCapBaseUnits fundedBaseUnits releasedBaseUnits repaidBaseUnits
   }
 }`;
@@ -71,7 +74,7 @@ const DETAIL = `query RwaOperationsDetail($dealId: ID!) {
     dealId index gateKind allocationBps amountBaseUnits status gateRevision
   }
   rwaTreasuryMovements(dealId: $dealId) {
-    id dealId milestoneIndex status releasedUsdcBaseUnits grossUsdMinor netUsdMinor
+    id dealId milestoneIndex status railKind releasedUsdcBaseUnits grossUsdMinor netUsdMinor
     conversionRateE8 providerFeesUsdMinor bankFeesUsdMinor beneficiaryEntityHash
     bankRouteHash conversionProviderRefHash swiftUetrHash bankConfirmationHash
     treasuryApprovedBy riskApprovedBy updatedAt
@@ -183,9 +186,9 @@ export function RwaTreasuryDesk({ notify }: { notify: Notify }) {
     <div className="page rwa-ops">
       <header className="rwa-ops__header">
         <div>
-          <span className="rwa-kicker">US ISSUER CONTROL PLANE</span>
+          <span className="rwa-kicker">MSE TREASURY CONTROL PLANE</span>
           <h1>RWA treasury rail</h1>
-          <p>Release, conversion, SWIFT, bank confirmation, and repayment evidence—kept distinct from the international fiat beneficiary.</p>
+          <p>Release, conversion, SWIFT, bank confirmation, and repayment evidence—the Squads fiat-forward rail runs the full chain; a direct-USDC MSE settles on release.</p>
         </div>
         <div className="rwa-role"><ShieldCheck /><span>ACTIVE ROLE</span><strong>{role.replaceAll('_', ' ')}</strong></div>
       </header>
@@ -296,11 +299,15 @@ function MovementAction({
   run: (operation: () => Promise<unknown>, success: string) => Promise<void>;
   getIdToken: () => Promise<string>;
 }) {
+  const isDirect = deal.mseRailKind === 'DIRECT_USDC';
+
   if (!movement) {
     return (
       <ActionForm
         title="Create disbursement proposal"
-        copy="The immutable beneficiary and bank-route commitments are copied from the deal—not typed by operations."
+        copy={isDirect
+          ? 'The MSE beneficiary is copied from the deal. A direct-USDC MSE has no bank route—USDC lands in its wallet on release.'
+          : 'The immutable beneficiary and bank-route commitments are copied from the deal—not typed by operations.'}
         submitLabel="Create proposal"
         allowed={role.isOperations || role.isAdmin || role.isTreasury}
         busy={busy}
@@ -314,15 +321,15 @@ function MovementAction({
               dealId: deal.id,
               milestoneIndex: milestone.index,
               beneficiaryEntityHash: deal.beneficiaryEntityHash,
-              bankRouteHash: deal.bankRouteHash,
+              ...(isDirect ? {} : { bankRouteHash: deal.bankRouteHash }),
             },
             getIdToken,
           ),
           'Disbursement proposal created',
         )}
       >
-        <Commitment label="Fiat beneficiary" value={deal.beneficiaryEntityHash} />
-        <Commitment label="Approved bank route" value={deal.bankRouteHash} />
+        <Commitment label={isDirect ? 'MSE beneficiary' : 'Fiat beneficiary'} value={deal.beneficiaryEntityHash} />
+        {isDirect ? null : <Commitment label="Approved bank route" value={deal.bankRouteHash} />}
       </ActionForm>
     );
   }
@@ -366,8 +373,10 @@ function MovementAction({
   if (movement.status === 'APPROVED') {
     return (
       <ActionForm
-        title="Anchor Squads release"
-        copy="Execute the approved Squads proposal first, then record the finalized Solana signature."
+        title={isDirect ? 'Anchor direct USDC release' : 'Anchor Squads release'}
+        copy={isDirect
+          ? 'Execute the approved release to the MSE wallet first, then record the finalized Solana signature.'
+          : 'Execute the approved Squads proposal first, then record the finalized Solana signature.'}
         submitLabel="Record USDC release"
         allowed={role.isTreasury || role.isSuperAdmin}
         busy={busy}
@@ -388,6 +397,29 @@ function MovementAction({
       >
         <Commitment label="Exact scheduled amount" value={`${amount(milestone.amountBaseUnits)} USDC`} />
       </ActionForm>
+    );
+  }
+
+  if (movement.status === 'USDC_RELEASED' && isDirect) {
+    return (
+      <ActionForm
+        title="Reconcile direct USDC transfer"
+        copy="A direct-USDC MSE has no conversion or SWIFT leg; the finalized on-chain transfer to the MSE wallet is the reconciliation evidence."
+        submitLabel="Reconcile movement"
+        allowed={role.isRisk || role.isAdmin}
+        busy={busy}
+        fields={[{ name: 'reconciliationEvidenceHash', label: 'Reconciliation evidence hash', hash: true }]}
+        onSubmit={(values) => run(
+          () => mutate(
+            `mutation Reconcile($input: ReconcileTreasuryMovementInput!) {
+              reconcileTreasuryMovement(input: $input) { id status }
+            }`,
+            { movementId: movement.id, ...values },
+            getIdToken,
+          ),
+          'Direct USDC movement reconciled',
+        )}
+      />
     );
   }
 

@@ -37,7 +37,7 @@ async function graphql<T>(
 }
 
 const dealFields = `
-  id displayName issuerEntityHash beneficiaryEntityHash assetSetHash
+  id displayName issuerEntityHash beneficiaryEntityHash mseRailKind assetSetHash
   documentBundleHash termsHash settlementMint receiptMint receiptTokenProgram
   dealIdHash state minimumRaiseBaseUnits hardCapBaseUnits fundedBaseUnits
   releasedBaseUnits repaidBaseUnits couponBps subscriptionOpenAt

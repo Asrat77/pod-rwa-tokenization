@@ -348,13 +348,26 @@ function InvestorApp() {
                   <section className="panel record-panel">
                     <PanelHeading number="02" label="LEGAL & CHAIN RECORD" title="What this series represents" />
                     <div className="record-grid">
-                      <Record icon={<Landmark />} label="Issuer / treasury" value="US C-Corporation" note={`Commitment ${short(deal.issuerEntityHash)}`} />
-                      <Record icon={<ArrowUpRight />} label="Fiat beneficiary" value="International MSE" note={`Separate entity ${short(deal.beneficiaryEntityHash)}`} />
+                      <Record icon={<Landmark />} label="Issuer" value="US C-Corporation" note={`Commitment ${short(deal.issuerEntityHash)}`} />
+                      <Record
+                        icon={<ArrowUpRight />}
+                        label="MSE beneficiary"
+                        value={deal.mseRailKind === "DIRECT_USDC" ? "Third-party MSE (direct USDC)" : "Platform MSE (Squads → SWIFT)"}
+                        note={`Entity ${short(deal.beneficiaryEntityHash)}`}
+                      />
                       <Record icon={<CircleDollarSign />} label="Settlement asset" value="Circle USDC" note={`6 decimals · ${short(deal.settlementMint)}`} />
                       <Record icon={<FileCheck2 />} label="Legal documents" value="Locked at opening" note={`Bundle ${short(deal.documentBundleHash)}`} />
                     </div>
                     <div className="flow-line">
-                      <span>INVESTOR</span><i /> <span>DEAL VAULT</span><i /> <span>US TREASURY</span><i /> <span>USD / SWIFT</span><i /> <span>BENEFICIARY</span>
+                      {deal.mseRailKind === "DIRECT_USDC" ? (
+                        <>
+                          <span>INVESTOR</span><i /> <span>DEAL VAULT</span><i /> <span>MSE WALLET (USDC)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>INVESTOR</span><i /> <span>DEAL VAULT</span><i /> <span>PLATFORM MSE (SQUADS)</span><i /> <span>USD / SWIFT</span><i /> <span>BENEFICIARY</span>
+                        </>
+                      )}
                     </div>
                   </section>
                 </div>
