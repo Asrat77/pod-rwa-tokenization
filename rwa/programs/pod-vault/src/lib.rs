@@ -50,6 +50,9 @@ pub mod pod_vault {
             args.governance != args.guardian
                 && args.governance != args.compliance_authority
                 && args.guardian != args.compliance_authority
+                && args.governance != args.platform_treasury_authority
+                && args.guardian != args.platform_treasury_authority
+                && args.compliance_authority != args.platform_treasury_authority
                 && args.oracle_program == pod_oracle::ID
                 && args.compliance_program == pod_compliance::ID,
             VaultError::AuthorityCollision
@@ -57,7 +60,8 @@ pub mod pod_vault {
         require!(
             args.governance != Pubkey::default()
                 && args.guardian != Pubkey::default()
-                && args.compliance_authority != Pubkey::default(),
+                && args.compliance_authority != Pubkey::default()
+                && args.platform_treasury_authority != Pubkey::default(),
             VaultError::InvalidTerms
         );
 
@@ -65,6 +69,7 @@ pub mod pod_vault {
             args.governance,
             args.guardian,
             args.compliance_authority,
+            args.platform_treasury_authority,
             args.oracle_program,
             args.compliance_program,
             ctx.bumps.protocol_config,
@@ -207,7 +212,7 @@ pub mod pod_vault {
         terms.schema_version = ACCOUNT_SCHEMA_V1;
         terms.deal_id = args.deal_id;
         terms.issuer_entity_hash = args.issuer_entity_hash;
-        terms.beneficiary_entity_hash = args.beneficiary_entity_hash;
+        terms.beneficiary_entity_hash = ctx.accounts.mse_beneficiary.entity_hash;
         terms.servicer_entity_hash = args.servicer_entity_hash;
         terms.asset_set_hash = args.asset_set_hash;
         terms.source_contract_hash = args.source_contract_hash;
@@ -226,8 +231,9 @@ pub mod pod_vault {
         terms.receipt_token_program = ctx.accounts.receipt_token_program.key();
         terms.subscription_vault = ctx.accounts.subscription_vault.key();
         terms.repayment_vault = ctx.accounts.repayment_vault.key();
-        terms.issuer_treasury_owner = args.issuer_treasury_owner;
-        terms.issuer_treasury_ata = ctx.accounts.issuer_treasury_ata.key();
+        terms.mse_wallet_owner = ctx.accounts.mse_beneficiary.wallet_owner;
+        terms.mse_usdc_ata = ctx.accounts.mse_usdc_ata.key();
+        terms.mse_rail_kind = ctx.accounts.mse_beneficiary.rail_kind;
         terms.servicer_authority = args.servicer_authority;
         terms.risk_authority = args.risk_authority;
         terms.compliance_escrow_ata = ctx.accounts.compliance_escrow_ata.key();
@@ -288,7 +294,7 @@ pub mod pod_vault {
         emit!(DealCreated {
             deal_id: args.deal_id,
             issuer_entity_hash: args.issuer_entity_hash,
-            beneficiary_entity_hash: args.beneficiary_entity_hash,
+            beneficiary_entity_hash: ctx.accounts.mse_beneficiary.entity_hash,
             settlement_mint: ctx.accounts.settlement_mint.key(),
             receipt_mint: ctx.accounts.receipt_mint.key(),
         });
@@ -799,6 +805,7 @@ pub mod pod_vault {
         movement.deal_id = ctx.accounts.deal_terms.deal_id;
         movement.milestone_index = milestone.index;
         movement.status = TreasuryMovementStatus::Approved;
+        movement.rail_kind = ctx.accounts.deal_terms.mse_rail_kind;
         movement.released_usdc = amount;
         movement.release_record = milestone.key();
         movement.release_signature_hash = [0; 32];
@@ -907,7 +914,7 @@ pub mod pod_vault {
             ctx.accounts.settlement_token_program.to_account_info(),
             ctx.accounts.subscription_vault.to_account_info(),
             ctx.accounts.settlement_mint.to_account_info(),
-            ctx.accounts.issuer_treasury_ata.to_account_info(),
+            ctx.accounts.mse_usdc_ata.to_account_info(),
             ctx.accounts.deal_state.to_account_info(),
             ctx.accounts.deal_terms.deal_id,
             ctx.accounts.deal_state.bump,
@@ -941,7 +948,7 @@ pub mod pod_vault {
             deal_id: milestone.deal_id,
             milestone_index: milestone.index,
             amount: milestone.amount,
-            treasury_ata: ctx.accounts.issuer_treasury_ata.key(),
+            mse_usdc_ata: ctx.accounts.mse_usdc_ata.key(),
         });
         Ok(())
     }
@@ -952,8 +959,12 @@ pub mod pod_vault {
     ) -> Result<()> {
         require_keys_eq!(
             ctx.accounts.authority.key(),
-            ctx.accounts.deal_terms.issuer_treasury_owner,
+            ctx.accounts.protocol_config.platform_treasury_authority,
             VaultError::Unauthorized
+        );
+        require!(
+            requires_squads_fiat_forward(ctx.accounts.treasury_movement.rail_kind),
+            VaultError::InvalidTreasuryTransition
         );
         require!(
             ctx.accounts.treasury_movement.status == TreasuryMovementStatus::UsdcReleased,
@@ -993,8 +1004,12 @@ pub mod pod_vault {
     ) -> Result<()> {
         require_keys_eq!(
             ctx.accounts.authority.key(),
-            ctx.accounts.deal_terms.issuer_treasury_owner,
+            ctx.accounts.protocol_config.platform_treasury_authority,
             VaultError::Unauthorized
+        );
+        require!(
+            requires_squads_fiat_forward(ctx.accounts.treasury_movement.rail_kind),
+            VaultError::InvalidTreasuryTransition
         );
         require!(
             ctx.accounts.treasury_movement.status == TreasuryMovementStatus::Converted
@@ -1023,6 +1038,10 @@ pub mod pod_vault {
             VaultError::Unauthorized
         );
         require!(
+            requires_squads_fiat_forward(ctx.accounts.treasury_movement.rail_kind),
+            VaultError::InvalidTreasuryTransition
+        );
+        require!(
             ctx.accounts.treasury_movement.status == TreasuryMovementStatus::SwiftSent
                 && bank_confirmation_hash != [0; 32],
             VaultError::InvalidTreasuryTransition
@@ -1046,7 +1065,8 @@ pub mod pod_vault {
             VaultError::Unauthorized
         );
         require!(
-            ctx.accounts.treasury_movement.status == TreasuryMovementStatus::BankConfirmed,
+            ctx.accounts.treasury_movement.status
+                == reconcile_precondition(ctx.accounts.treasury_movement.rail_kind),
             VaultError::InvalidTreasuryTransition
         );
         let movement = &mut ctx.accounts.treasury_movement;
@@ -1333,8 +1353,8 @@ pub mod pod_vault {
         ctx: Context<WithdrawIssuerDistribution>,
     ) -> Result<()> {
         require_keys_eq!(
-            ctx.accounts.issuer_treasury.key(),
-            ctx.accounts.deal_terms.issuer_treasury_owner,
+            ctx.accounts.mse_treasury.key(),
+            ctx.accounts.deal_terms.mse_wallet_owner,
             VaultError::Unauthorized
         );
         require!(
@@ -1352,13 +1372,13 @@ pub mod pod_vault {
             ctx.accounts.deal_state.key(),
         )?;
         validate_token_account(
-            &ctx.accounts.issuer_treasury_ata,
+            &ctx.accounts.mse_usdc_ata,
             ctx.accounts.settlement_mint.key(),
-            ctx.accounts.issuer_treasury.key(),
+            ctx.accounts.mse_treasury.key(),
         )?;
         require_keys_eq!(
-            ctx.accounts.issuer_treasury_ata.key(),
-            ctx.accounts.deal_terms.issuer_treasury_ata,
+            ctx.accounts.mse_usdc_ata.key(),
+            ctx.accounts.deal_terms.mse_usdc_ata,
             VaultError::InvalidTokenAccount
         );
 
@@ -1368,7 +1388,7 @@ pub mod pod_vault {
                 ctx.accounts.settlement_token_program.to_account_info(),
                 ctx.accounts.repayment_vault.to_account_info(),
                 ctx.accounts.settlement_mint.to_account_info(),
-                ctx.accounts.issuer_treasury_ata.to_account_info(),
+                ctx.accounts.mse_usdc_ata.to_account_info(),
                 ctx.accounts.deal_state.to_account_info(),
                 ctx.accounts.deal_terms.deal_id,
                 ctx.accounts.deal_state.bump,
@@ -1380,7 +1400,7 @@ pub mod pod_vault {
         emit!(IssuerDistributionWithdrawn {
             deal_id: ctx.accounts.deal_terms.deal_id,
             amount,
-            treasury_ata: ctx.accounts.issuer_treasury_ata.key(),
+            mse_usdc_ata: ctx.accounts.mse_usdc_ata.key(),
             dust_retained: ctx.accounts.settlement.dust_total,
         });
         Ok(())
@@ -1392,6 +1412,7 @@ pub struct InitializeProtocolArgs {
     pub governance: Pubkey,
     pub guardian: Pubkey,
     pub compliance_authority: Pubkey,
+    pub platform_treasury_authority: Pubkey,
     pub oracle_program: Pubkey,
     pub compliance_program: Pubkey,
 }
@@ -1415,7 +1436,6 @@ pub struct RegisterMseBeneficiaryArgs {
 pub struct CreateDealArgs {
     pub deal_id: [u8; 32],
     pub issuer_entity_hash: [u8; 32],
-    pub beneficiary_entity_hash: [u8; 32],
     pub servicer_entity_hash: [u8; 32],
     pub asset_set_hash: [u8; 32],
     pub source_contract_hash: [u8; 32],
@@ -1426,7 +1446,6 @@ pub struct CreateDealArgs {
     pub compliance_policy_hash: [u8; 32],
     pub commodity_valuation: Pubkey,
     pub fx_valuation: Pubkey,
-    pub issuer_treasury_owner: Pubkey,
     pub servicer_authority: Pubkey,
     pub risk_authority: Pubkey,
     pub subscription_open_at: i64,
@@ -1596,6 +1615,11 @@ pub struct CreateDeal<'info> {
         bump
     )]
     pub series: Account<'info, Series>,
+    #[account(
+        seeds = [b"mse-beneficiary", mse_beneficiary.entity_hash.as_ref()],
+        bump = mse_beneficiary.bump
+    )]
+    pub mse_beneficiary: Account<'info, MseBeneficiary>,
     pub settlement_mint: InterfaceAccount<'info, Mint>,
     pub receipt_mint: InterfaceAccount<'info, Mint>,
     pub compliance_config: Account<'info, pod_compliance::ComplianceConfig>,
@@ -1604,7 +1628,7 @@ pub struct CreateDeal<'info> {
     pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
     pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
-    pub issuer_treasury_ata: InterfaceAccount<'info, TokenAccount>,
+    pub mse_usdc_ata: InterfaceAccount<'info, TokenAccount>,
     pub compliance_escrow_ata: InterfaceAccount<'info, TokenAccount>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     pub receipt_token_program: Interface<'info, TokenInterface>,
@@ -1868,7 +1892,7 @@ pub struct ExecuteRelease<'info> {
     #[account(mut)]
     pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
-    pub issuer_treasury_ata: InterfaceAccount<'info, TokenAccount>,
+    pub mse_usdc_ata: InterfaceAccount<'info, TokenAccount>,
     pub settlement_mint: InterfaceAccount<'info, Mint>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     /// CHECK: revalidated immediately before transfer to reject superseding corrections.
@@ -2060,10 +2084,10 @@ pub struct WithdrawIssuerDistribution<'info> {
     #[account(mut)]
     pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
-    pub issuer_treasury_ata: InterfaceAccount<'info, TokenAccount>,
+    pub mse_usdc_ata: InterfaceAccount<'info, TokenAccount>,
     pub settlement_mint: InterfaceAccount<'info, Mint>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
-    pub issuer_treasury: Signer<'info>,
+    pub mse_treasury: Signer<'info>,
 }
 
 fn validate_create_deal(ctx: &Context<CreateDeal>, args: &CreateDealArgs) -> Result<()> {
@@ -2119,12 +2143,17 @@ fn validate_create_deal(ctx: &Context<CreateDeal>, args: &CreateDealArgs) -> Res
         VaultError::InvalidReceiptExtension
     );
     require!(
-        args.issuer_entity_hash != args.beneficiary_entity_hash,
+        ctx.accounts.mse_beneficiary.status == MseBeneficiaryStatus::Active,
+        VaultError::InactiveMseBeneficiary
+    );
+    require!(
+        args.issuer_entity_hash != ctx.accounts.mse_beneficiary.entity_hash,
         VaultError::IssuerBeneficiaryCollision
     );
     require!(
-        args.issuer_treasury_owner != args.risk_authority
-            && args.issuer_treasury_owner != ctx.accounts.protocol_config.governance
+        ctx.accounts.mse_beneficiary.wallet_owner != args.risk_authority
+            && ctx.accounts.mse_beneficiary.wallet_owner
+                != ctx.accounts.protocol_config.governance
             && args.risk_authority != ctx.accounts.protocol_config.governance,
         VaultError::AuthorityCollision
     );
@@ -2140,8 +2169,14 @@ fn validate_create_deal(ctx: &Context<CreateDeal>, args: &CreateDealArgs) -> Res
             && args.milestone_count > 0
             && usize::from(args.milestone_count) <= pod_rwa_common::MAX_RELEASE_MILESTONES
             && args.terms_hash != [0; 32]
-            && args.document_bundle_hash != [0; 32]
-            && args.bank_route_hash != [0; 32],
+            && args.document_bundle_hash != [0; 32],
+        VaultError::InvalidTerms
+    );
+    // A SWIFT/bank route is only meaningful for the Squads fiat-forward rail; a
+    // direct-USDC MSE has no off-chain bank leg, so its bank route may be empty.
+    require!(
+        ctx.accounts.mse_beneficiary.rail_kind != MseRailKind::SquadsFiatForward
+            || args.bank_route_hash != [0; 32],
         VaultError::InvalidTerms
     );
     require!(
@@ -2158,10 +2193,15 @@ fn validate_create_deal(ctx: &Context<CreateDeal>, args: &CreateDealArgs) -> Res
         ctx.accounts.settlement_mint.key(),
         ctx.accounts.deal_state.key(),
     )?;
+    require_keys_eq!(
+        ctx.accounts.mse_usdc_ata.key(),
+        ctx.accounts.mse_beneficiary.usdc_ata,
+        VaultError::InvalidTokenAccount
+    );
     validate_token_account(
-        &ctx.accounts.issuer_treasury_ata,
+        &ctx.accounts.mse_usdc_ata,
         ctx.accounts.settlement_mint.key(),
-        args.issuer_treasury_owner,
+        ctx.accounts.mse_beneficiary.wallet_owner,
     )?;
     require_keys_eq!(
         ctx.accounts.compliance_escrow_ata.mint,
@@ -2211,7 +2251,7 @@ fn validate_compliance_series_setup(ctx: &Context<CreateDeal>) -> Result<()> {
             && ctx.accounts.transfer_policy.config == expected_config
             && ctx.accounts.transfer_policy.series == ctx.accounts.receipt_mint.key()
             && ctx.accounts.transfer_policy.issuer
-                == ctx.accounts.issuer_treasury_ata.owner
+                == ctx.accounts.protocol_config.platform_treasury_authority
             && ctx.accounts.transfer_policy.burn_caller == ctx.accounts.series.key()
             && ctx.accounts.transfer_policy.mode == TransferPolicyMode::IssuerRestricted
             && ctx.accounts.transfer_policy.active,
@@ -2604,7 +2644,7 @@ fn validate_release_schedule(
     );
     require_keys_eq!(
         ctx.accounts.treasury_authority.key(),
-        ctx.accounts.deal_terms.issuer_treasury_owner,
+        ctx.accounts.protocol_config.platform_treasury_authority,
         VaultError::Unauthorized
     );
     require!(
@@ -2761,8 +2801,8 @@ fn validate_locked_token_accounts_for_release(ctx: &Context<ExecuteRelease>) -> 
         VaultError::InvalidSettlementAsset
     );
     require_keys_eq!(
-        ctx.accounts.issuer_treasury_ata.key(),
-        ctx.accounts.deal_terms.issuer_treasury_ata,
+        ctx.accounts.mse_usdc_ata.key(),
+        ctx.accounts.deal_terms.mse_usdc_ata,
         VaultError::InvalidTokenAccount
     );
     validate_token_account(
@@ -2771,10 +2811,28 @@ fn validate_locked_token_accounts_for_release(ctx: &Context<ExecuteRelease>) -> 
         ctx.accounts.deal_state.key(),
     )?;
     validate_token_account(
-        &ctx.accounts.issuer_treasury_ata,
+        &ctx.accounts.mse_usdc_ata,
         ctx.accounts.settlement_mint.key(),
-        ctx.accounts.deal_terms.issuer_treasury_owner,
+        ctx.accounts.deal_terms.mse_wallet_owner,
     )
+}
+
+/// The status a treasury movement must hold before it can be reconciled, which
+/// differs by rail: the Squads fiat-forward rail must clear its full off-chain
+/// evidence chain through `BankConfirmed`, while a direct-USDC movement is complete
+/// once the stablecoin has left the vault.
+fn reconcile_precondition(rail: MseRailKind) -> TreasuryMovementStatus {
+    match rail {
+        MseRailKind::SquadsFiatForward => TreasuryMovementStatus::BankConfirmed,
+        MseRailKind::DirectUsdc => TreasuryMovementStatus::UsdcReleased,
+    }
+}
+
+/// Whether a rail records the conversion, SWIFT and bank-confirmation evidence
+/// stages. Only the Squads fiat-forward rail has an off-chain USD leg; direct-USDC
+/// movements must never enter those stages.
+fn requires_squads_fiat_forward(rail: MseRailKind) -> bool {
+    matches!(rail, MseRailKind::SquadsFiatForward)
 }
 
 fn is_replayed_receipt(
@@ -3175,7 +3233,7 @@ pub struct ReleaseExecuted {
     pub deal_id: [u8; 32],
     pub milestone_index: u8,
     pub amount: u64,
-    pub treasury_ata: Pubkey,
+    pub mse_usdc_ata: Pubkey,
 }
 
 #[event]
@@ -3229,7 +3287,7 @@ pub struct Redeemed {
 pub struct IssuerDistributionWithdrawn {
     pub deal_id: [u8; 32],
     pub amount: u64,
-    pub treasury_ata: Pubkey,
+    pub mse_usdc_ata: Pubkey,
     pub dust_retained: u64,
 }
 
@@ -3268,6 +3326,24 @@ mod unit_tests {
         let right = checked_pro_rata(15_000_000, pool, 30_000_000).unwrap();
         assert!(left + right <= pool);
         assert_eq!(pool - left - right, 1);
+    }
+
+    #[test]
+    fn reconcile_precondition_depends_on_rail() {
+        assert_eq!(
+            reconcile_precondition(MseRailKind::SquadsFiatForward),
+            TreasuryMovementStatus::BankConfirmed
+        );
+        assert_eq!(
+            reconcile_precondition(MseRailKind::DirectUsdc),
+            TreasuryMovementStatus::UsdcReleased
+        );
+    }
+
+    #[test]
+    fn only_squads_rail_records_fiat_evidence_stages() {
+        assert!(requires_squads_fiat_forward(MseRailKind::SquadsFiatForward));
+        assert!(!requires_squads_fiat_forward(MseRailKind::DirectUsdc));
     }
 
     #[test]

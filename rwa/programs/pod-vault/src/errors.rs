@@ -76,4 +76,6 @@ pub enum VaultError {
     MintAuthorityStillActive,
     #[msg("The issuer settlement distribution has already been withdrawn")]
     IssuerDistributionAlreadyWithdrawn,
+    #[msg("The MSE beneficiary is not active in the registry")]
+    InactiveMseBeneficiary,
 }

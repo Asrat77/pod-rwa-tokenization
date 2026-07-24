@@ -22,6 +22,7 @@ pub struct ProtocolConfig {
     pub governance: Pubkey,
     pub guardian: Pubkey,
     pub compliance_authority: Pubkey,
+    pub platform_treasury_authority: Pubkey,
     pub oracle_program: Pubkey,
     pub compliance_program: Pubkey,
     pub pause_subscriptions: bool,
@@ -32,11 +33,13 @@ pub struct ProtocolConfig {
 }
 
 impl ProtocolConfig {
+    #[allow(clippy::too_many_arguments)]
     pub fn initialize(
         &mut self,
         governance: Pubkey,
         guardian: Pubkey,
         compliance_authority: Pubkey,
+        platform_treasury_authority: Pubkey,
         oracle_program: Pubkey,
         compliance_program: Pubkey,
         bump: u8,
@@ -45,6 +48,7 @@ impl ProtocolConfig {
         self.governance = governance;
         self.guardian = guardian;
         self.compliance_authority = compliance_authority;
+        self.platform_treasury_authority = platform_treasury_authority;
         self.oracle_program = oracle_program;
         self.compliance_program = compliance_program;
         self.pause_subscriptions = false;
@@ -108,8 +112,9 @@ pub struct DealTerms {
     pub receipt_token_program: Pubkey,
     pub subscription_vault: Pubkey,
     pub repayment_vault: Pubkey,
-    pub issuer_treasury_owner: Pubkey,
-    pub issuer_treasury_ata: Pubkey,
+    pub mse_wallet_owner: Pubkey,
+    pub mse_usdc_ata: Pubkey,
+    pub mse_rail_kind: MseRailKind,
     pub servicer_authority: Pubkey,
     pub risk_authority: Pubkey,
     pub compliance_escrow_ata: Pubkey,
@@ -269,6 +274,7 @@ pub struct TreasuryMovement {
     pub deal_id: [u8; 32],
     pub milestone_index: u8,
     pub status: TreasuryMovementStatus,
+    pub rail_kind: MseRailKind,
     pub released_usdc: u64,
     pub release_record: Pubkey,
     pub release_signature_hash: [u8; 32],
