@@ -10,6 +10,8 @@ import {
   markDisbursementUsdcReleased,
   markFiatDisbursementFailed,
   markFiatDisbursementReturned,
+  recordDisbursementConversion,
+  reconcileFiatDisbursement,
   type FiatDisbursementV1,
 } from "../src/index.js";
 import {
@@ -28,10 +30,26 @@ function proposedDisbursement(): FiatDisbursementV1 {
     id: "disbursement-deal-006-0",
     dealId: "deal-006",
     milestoneIndex: 0,
+    railKind: "SQUADS_FIAT_FORWARD",
     issuerEntityReference: "us-corp-issuer",
-    fiatBeneficiaryEntityReference: "international-beneficiary-006",
+    mseBeneficiaryEntityReference: "international-beneficiary-006",
     beneficiaryBankRouteCommitment: commitment("beneficiary-bank-route"),
-    issuerTreasuryUsdcAta: ISSUER_ATA,
+    mseUsdcAta: ISSUER_ATA,
+    releasedUsdcBaseUnits: "9000000",
+    proposedBy: "operations-1",
+    proposedAt: NOW,
+  });
+}
+
+function directProposedDisbursement(): FiatDisbursementV1 {
+  return createFiatDisbursement({
+    id: "disbursement-deal-007-0",
+    dealId: "deal-007",
+    milestoneIndex: 0,
+    railKind: "DIRECT_USDC",
+    issuerEntityReference: "us-corp-issuer",
+    mseBeneficiaryEntityReference: "international-mse-007",
+    mseUsdcAta: ISSUER_ATA,
     releasedUsdcBaseUnits: "9000000",
     proposedBy: "operations-1",
     proposedAt: NOW,
@@ -92,10 +110,11 @@ describe("fiat disbursement state machine", () => {
         id: "bad-disbursement",
         dealId: "deal-006",
         milestoneIndex: 0,
+        railKind: "SQUADS_FIAT_FORWARD",
         issuerEntityReference: "US-Corp-Issuer",
-        fiatBeneficiaryEntityReference: "us-corp-issuer",
+        mseBeneficiaryEntityReference: "us-corp-issuer",
         beneficiaryBankRouteCommitment: commitment("route"),
-        issuerTreasuryUsdcAta: ISSUER_ATA,
+        mseUsdcAta: ISSUER_ATA,
         releasedUsdcBaseUnits: "1",
         proposedBy: "operations-1",
         proposedAt: NOW,
@@ -113,7 +132,7 @@ describe("fiat disbursement state machine", () => {
         amountBaseUnits: "9000000",
         recordedAt: "2026-07-23T18:03:00.000Z",
       }),
-    ).toThrow(/configured US issuer treasury ATA/);
+    ).toThrow(/MSE destination ATA/);
     expect(() =>
       markDisbursementUsdcReleased(approvedDisbursement(), {
         transactionSignature: "release-signature-1",
@@ -171,6 +190,50 @@ describe("fiat disbursement state machine", () => {
     const reconciled = await adapter.reconcileDisbursement(confirmed, {
       evidence: { ledgerBatch: "ledger-batch-secret" },
       reconciledBy: "reconciliation-operator",
+    });
+    expect(reconciled.status).toBe("RECONCILED");
+    expect(() => assertDisbursementAllowsNextRelease(reconciled)).not.toThrow();
+  });
+
+  it("reconciles a direct-USDC MSE movement straight from release and blocks the fiat stages", () => {
+    const approvedFirst = approveFiatDisbursement(directProposedDisbursement(), {
+      role: "RISK",
+      approvedBy: "risk-1",
+      approvedAt: "2026-07-23T18:01:00.000Z",
+    });
+    const approved = approveFiatDisbursement(approvedFirst, {
+      role: "TREASURY",
+      approvedBy: "treasury-1",
+      approvedAt: "2026-07-23T18:02:00.000Z",
+    });
+    const released = markDisbursementUsdcReleased(approved, {
+      transactionSignature: "direct-release-signature",
+      finalizedSlot: "223456789",
+      sourceTokenAccount: SUBSCRIPTION_VAULT,
+      destinationTokenAccount: ISSUER_ATA,
+      amountBaseUnits: "9000000",
+      recordedAt: "2026-07-23T18:03:00.000Z",
+    });
+    expect(released.status).toBe("USDC_RELEASED");
+
+    expect(() =>
+      recordDisbursementConversion(released, {
+        providerReferenceCommitment: commitment("provider"),
+        grossUsdMinorUnits: "900",
+        providerFeesUsdMinorUnits: "0",
+        netUsdMinorUnits: "900",
+        rateUsdMinorUnitsNumerator: "900",
+        rateUsdcBaseUnitsDenominator: "9000000",
+        evidenceCommitment: commitment("conversion"),
+        recordedBy: "treasury-operator",
+        recordedAt: "2026-07-23T18:04:00.000Z",
+      }),
+    ).toThrow(/Squads fiat-forward rail/);
+
+    const reconciled = reconcileFiatDisbursement(released, {
+      evidenceCommitment: commitment("direct-reconciliation"),
+      reconciledBy: "reconciliation-operator",
+      reconciledAt: "2026-07-23T18:05:00.000Z",
     });
     expect(reconciled.status).toBe("RECONCILED");
     expect(() => assertDisbursementAllowsNextRelease(reconciled)).not.toThrow();

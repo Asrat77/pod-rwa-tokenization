@@ -37,12 +37,13 @@ function validDeal(): DealV1 {
       bankRouteCommitment: commitment("bank-route"),
       financingContractCommitment: commitment("financing-contract"),
     },
-    treasuryRoute: {
-      kind: "ISSUER_TREASURY",
-      ownerEntityReference: "us-corp-issuer",
+    mseDestination: {
+      kind: "SQUADS_FIAT_FORWARD",
+      entityReference: "us-corp-issuer",
       squadsMultisig: WALLET,
       squadsVaultIndex: 0,
       squadsVaultPda: OTHER_WALLET,
+      walletOwner: OTHER_WALLET,
       usdcAta: PROGRAM_ID,
     },
     assetSetCommitment: commitment("asset-set"),
@@ -83,9 +84,9 @@ describe("deal domain validation", () => {
       validateIssuerBeneficiarySeparation(
         deal.issuer,
         deal.servicer,
-        deal.treasuryRoute,
+        deal.mseDestination,
         {
-          ...deal.fiatBeneficiary,
+          ...deal.fiatBeneficiary!,
           entityReference: "US-CORP-ISSUER",
         },
       ),
@@ -98,7 +99,7 @@ describe("deal domain validation", () => {
       validateIssuerBeneficiarySeparation(
         deal.issuer,
         { ...deal.servicer, entityReference: "unregistered-servicer" },
-        deal.treasuryRoute,
+        deal.mseDestination,
         deal.fiatBeneficiary,
       ),
     ).toThrow(/registered servicer/);
@@ -107,8 +108,8 @@ describe("deal domain validation", () => {
         deal.issuer,
         deal.servicer,
         {
-          ...deal.treasuryRoute,
-          ownerEntityReference: "international-beneficiary-006",
+          ...deal.mseDestination,
+          entityReference: "international-beneficiary-006",
         },
         deal.fiatBeneficiary,
       ),

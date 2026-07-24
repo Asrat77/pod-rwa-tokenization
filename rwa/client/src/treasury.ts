@@ -4,6 +4,7 @@ import {
   type ContentCommitment,
   type EntityReference,
   type IsoTimestamp,
+  type MseRailKindV1,
 } from "./domain.js";
 import { invariant } from "./errors.js";
 import {
@@ -96,10 +97,12 @@ export interface FiatDisbursementV1 {
   readonly dealId: string;
   readonly milestoneIndex: number;
   readonly status: FiatDisbursementStatusV1;
+  readonly railKind: MseRailKindV1;
   readonly issuerEntityReference: EntityReference;
-  readonly fiatBeneficiaryEntityReference: EntityReference;
-  readonly beneficiaryBankRouteCommitment: ContentCommitment;
-  readonly issuerTreasuryUsdcAta: string;
+  readonly mseBeneficiaryEntityReference: EntityReference;
+  /** Present only on the Squads fiat-forward rail; a direct-USDC MSE has no bank leg. */
+  readonly beneficiaryBankRouteCommitment?: ContentCommitment;
+  readonly mseUsdcAta: string;
   readonly releasedUsdcBaseUnits: BaseUnitString;
   readonly approvals: readonly TreasuryApprovalV1[];
   readonly proposedBy: string;
@@ -116,10 +119,11 @@ export interface CreateFiatDisbursementInput {
   readonly id: string;
   readonly dealId: string;
   readonly milestoneIndex: number;
+  readonly railKind: MseRailKindV1;
   readonly issuerEntityReference: EntityReference;
-  readonly fiatBeneficiaryEntityReference: EntityReference;
-  readonly beneficiaryBankRouteCommitment: ContentCommitment;
-  readonly issuerTreasuryUsdcAta: string;
+  readonly mseBeneficiaryEntityReference: EntityReference;
+  readonly beneficiaryBankRouteCommitment?: ContentCommitment;
+  readonly mseUsdcAta: string;
   readonly releasedUsdcBaseUnits: BaseUnitInput;
   readonly proposedBy: string;
   readonly proposedAt: IsoTimestamp;
@@ -268,28 +272,44 @@ export function createFiatDisbursement(
     "INVALID_ARGUMENT",
     "milestoneIndex must be a non-negative integer",
   );
+  invariant(
+    input.railKind === "SQUADS_FIAT_FORWARD" ||
+      input.railKind === "DIRECT_USDC",
+    "INVALID_ARGUMENT",
+    "railKind must be SQUADS_FIAT_FORWARD or DIRECT_USDC",
+  );
   requiredIdentifier(
     input.issuerEntityReference,
     "issuerEntityReference",
   );
   requiredIdentifier(
-    input.fiatBeneficiaryEntityReference,
-    "fiatBeneficiaryEntityReference",
+    input.mseBeneficiaryEntityReference,
+    "mseBeneficiaryEntityReference",
   );
   invariant(
     canonicalEntityReference(input.issuerEntityReference) !==
-      canonicalEntityReference(input.fiatBeneficiaryEntityReference),
+      canonicalEntityReference(input.mseBeneficiaryEntityReference),
     "INVALID_PARTY_CONFIGURATION",
-    "the US issuer treasury and fiat beneficiary must be distinct legal entities",
+    "the US issuer and the MSE beneficiary must be distinct legal entities",
   );
-  validateContentCommitment(
-    input.beneficiaryBankRouteCommitment,
-    "beneficiaryBankRouteCommitment",
-  );
-  validateSolanaPublicKey(
-    input.issuerTreasuryUsdcAta,
-    "issuerTreasuryUsdcAta",
-  );
+  if (input.railKind === "SQUADS_FIAT_FORWARD") {
+    invariant(
+      input.beneficiaryBankRouteCommitment !== undefined,
+      "INVALID_ARGUMENT",
+      "the Squads fiat-forward rail requires a beneficiary bank route commitment",
+    );
+    validateContentCommitment(
+      input.beneficiaryBankRouteCommitment,
+      "beneficiaryBankRouteCommitment",
+    );
+  } else {
+    invariant(
+      input.beneficiaryBankRouteCommitment === undefined,
+      "INVALID_ARGUMENT",
+      "a direct-USDC MSE disbursement has no bank route",
+    );
+  }
+  validateSolanaPublicKey(input.mseUsdcAta, "mseUsdcAta");
   const amount = baseUnits(
     input.releasedUsdcBaseUnits,
     "releasedUsdcBaseUnits",
@@ -307,10 +327,13 @@ export function createFiatDisbursement(
     dealId: input.dealId,
     milestoneIndex: input.milestoneIndex,
     status: "PROPOSED",
+    railKind: input.railKind,
     issuerEntityReference: input.issuerEntityReference,
-    fiatBeneficiaryEntityReference: input.fiatBeneficiaryEntityReference,
-    beneficiaryBankRouteCommitment: input.beneficiaryBankRouteCommitment,
-    issuerTreasuryUsdcAta: input.issuerTreasuryUsdcAta,
+    mseBeneficiaryEntityReference: input.mseBeneficiaryEntityReference,
+    ...(input.beneficiaryBankRouteCommitment !== undefined
+      ? { beneficiaryBankRouteCommitment: input.beneficiaryBankRouteCommitment }
+      : {}),
+    mseUsdcAta: input.mseUsdcAta,
     releasedUsdcBaseUnits: amount,
     approvals: [],
     proposedBy: input.proposedBy,
@@ -387,9 +410,9 @@ export function markDisbursementUsdcReleased(
     "destinationTokenAccount",
   );
   invariant(
-    command.destinationTokenAccount === disbursement.issuerTreasuryUsdcAta,
+    command.destinationTokenAccount === disbursement.mseUsdcAta,
     "INVALID_PARTY_CONFIGURATION",
-    "USDC must be released to the configured US issuer treasury ATA",
+    "USDC must be released to the deal's locked MSE destination ATA",
   );
   const amount = baseUnits(command.amountBaseUnits, "amountBaseUnits");
   invariant(
@@ -423,6 +446,7 @@ export function recordDisbursementConversion(
   disbursement: FiatDisbursementV1,
   command: RecordConversionCommand,
 ): FiatDisbursementV1 {
+  assertSquadsRail(disbursement, "conversion recording");
   assertDisbursementStatus(
     disbursement,
     ["USDC_RELEASED"],
@@ -496,6 +520,7 @@ export function recordSwiftSent(
   disbursement: FiatDisbursementV1,
   command: RecordSwiftSentCommand,
 ): FiatDisbursementV1 {
+  assertSquadsRail(disbursement, "SWIFT recording");
   assertDisbursementStatus(disbursement, ["CONVERTED"], "SWIFT recording");
   invariant(
     disbursement.conversion !== undefined,
@@ -553,6 +578,7 @@ export function recordBankConfirmation(
   disbursement: FiatDisbursementV1,
   command: RecordBankConfirmationCommand,
 ): FiatDisbursementV1 {
+  assertSquadsRail(disbursement, "bank confirmation");
   assertDisbursementStatus(
     disbursement,
     ["SWIFT_SENT"],
@@ -597,25 +623,43 @@ export function reconcileFiatDisbursement(
   disbursement: FiatDisbursementV1,
   command: ReconcileDisbursementCommand,
 ): FiatDisbursementV1 {
-  assertDisbursementStatus(
-    disbursement,
-    ["BANK_CONFIRMED"],
-    "disbursement reconciliation",
-  );
   validateContentCommitment(
     command.evidenceCommitment,
     "evidenceCommitment",
   );
   requiredIdentifier(command.reconciledBy, "reconciledBy");
   validateIsoTimestamp(command.reconciledAt, "reconciledAt");
-  invariant(
-    disbursement.bankConfirmation !== undefined,
-    "INVARIANT_VIOLATION",
-    "bank confirmation is required before reconciliation",
-  );
+  let priorTimestamp: IsoTimestamp;
+  if (disbursement.railKind === "SQUADS_FIAT_FORWARD") {
+    assertDisbursementStatus(
+      disbursement,
+      ["BANK_CONFIRMED"],
+      "disbursement reconciliation",
+    );
+    invariant(
+      disbursement.bankConfirmation !== undefined,
+      "INVARIANT_VIOLATION",
+      "bank confirmation is required before reconciliation",
+    );
+    priorTimestamp = disbursement.bankConfirmation.confirmedAt;
+  } else {
+    // A direct-USDC movement has no conversion or SWIFT leg; the finalized
+    // on-chain transfer to the MSE wallet is itself the reconciliation evidence.
+    assertDisbursementStatus(
+      disbursement,
+      ["USDC_RELEASED"],
+      "disbursement reconciliation",
+    );
+    invariant(
+      disbursement.onchainRelease !== undefined,
+      "INVARIANT_VIOLATION",
+      "on-chain release evidence is required before reconciliation",
+    );
+    priorTimestamp = disbursement.onchainRelease.recordedAt;
+  }
   assertTimestampAtOrAfter(
     command.reconciledAt,
-    disbursement.bankConfirmation.confirmedAt,
+    priorTimestamp,
     "reconciledAt",
   );
   return {
@@ -698,15 +742,28 @@ function recordDisbursementException(
   };
 }
 
+function assertSquadsRail(
+  disbursement: FiatDisbursementV1,
+  action: string,
+): void {
+  invariant(
+    disbursement.railKind === "SQUADS_FIAT_FORWARD",
+    "INVALID_STATE_TRANSITION",
+    `${action} only applies to the Squads fiat-forward rail`,
+    { railKind: disbursement.railKind },
+  );
+}
+
 export function assertDisbursementAllowsNextRelease(
   disbursement: FiatDisbursementV1,
 ): void {
   invariant(
     disbursement.status === "RECONCILED" &&
-      disbursement.bankConfirmation !== undefined &&
-      disbursement.reconciliation !== undefined,
+      disbursement.reconciliation !== undefined &&
+      (disbursement.railKind === "DIRECT_USDC" ||
+        disbursement.bankConfirmation !== undefined),
     "INVALID_STATE_TRANSITION",
-    "the prior fiat disbursement must be bank-confirmed and reconciled before the next release",
+    "the prior fiat disbursement must be reconciled before the next release",
     { status: disbursement.status },
   );
 }

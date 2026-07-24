@@ -34,13 +34,47 @@ export interface FiatBeneficiaryV1 {
   readonly financingContractCommitment: ContentCommitment;
 }
 
-export interface TreasuryRouteV1 {
-  readonly kind: "ISSUER_TREASURY";
-  readonly ownerEntityReference: EntityReference;
+export type MseRailKindV1 = "SQUADS_FIAT_FORWARD" | "DIRECT_USDC";
+
+/**
+ * The platform's own MSE takes custody of released USDC in a Squads multisig vault
+ * and forwards USD over SWIFT off-chain, so it carries the Squads coordinates plus
+ * a distinct fiat beneficiary on the owning deal.
+ */
+export interface MseSquadsDestinationV1 {
+  readonly kind: "SQUADS_FIAT_FORWARD";
+  readonly entityReference: EntityReference;
   readonly squadsMultisig: string;
   readonly squadsVaultIndex: number;
   readonly squadsVaultPda: string;
+  readonly walletOwner: string;
   readonly usdcAta: string;
+}
+
+/**
+ * A third-party MSE receives released USDC directly into its registered wallet ATA
+ * when the oracle approves; there is no Squads vault and no off-chain SWIFT leg.
+ */
+export interface MseDirectDestinationV1 {
+  readonly kind: "DIRECT_USDC";
+  readonly entityReference: EntityReference;
+  readonly walletOwner: string;
+  readonly usdcAta: string;
+}
+
+export type MseDestinationV1 = MseSquadsDestinationV1 | MseDirectDestinationV1;
+
+export type MseBeneficiaryStatusV1 = "ACTIVE" | "SUSPENDED";
+
+/** Mirrors a governance-registered on-chain `MseBeneficiary` registry entry. */
+export interface MseBeneficiaryRecordV1 {
+  readonly schemaVersion: 1;
+  readonly entityReference: EntityReference;
+  readonly entityHash: ContentCommitment;
+  readonly walletOwner: string;
+  readonly usdcAta: string;
+  readonly railKind: MseRailKindV1;
+  readonly status: MseBeneficiaryStatusV1;
 }
 
 export interface SettlementAssetV1 {
@@ -67,13 +101,15 @@ export interface DealV1 {
   readonly state: DealStateV1;
   readonly issuer: IssuerV1;
   readonly servicer: ServicerV1;
-  readonly fiatBeneficiary: FiatBeneficiaryV1;
-  readonly treasuryRoute: TreasuryRouteV1;
+  readonly mseDestination: MseDestinationV1;
+  /** Required for the Squads fiat-forward rail; absent for direct-USDC MSEs. */
+  readonly fiatBeneficiary?: FiatBeneficiaryV1;
   readonly assetSetCommitment: ContentCommitment;
   readonly legalDocumentCommitment: ContentCommitment;
   readonly valuationCommitment: ContentCommitment;
   readonly compliancePolicyCommitment: ContentCommitment;
-  readonly fiatRouteCommitment: ContentCommitment;
+  /** Required for the Squads fiat-forward rail; absent for direct-USDC MSEs. */
+  readonly fiatRouteCommitment?: ContentCommitment;
   readonly settlementAsset: SettlementAssetV1;
   readonly minimumRaiseBaseUnits: BaseUnitString;
   readonly hardCapBaseUnits: BaseUnitString;
@@ -214,50 +250,74 @@ function canonicalPartyReference(value: string): string {
 }
 
 /**
- * Enforces the legal/operational boundary that the US issuer owns the on-chain
- * treasury while the international party is only the fiat beneficiary.
+ * Enforces the legal/operational boundary between the US issuer and the party that
+ * ultimately receives value. On the Squads fiat-forward rail the issuer owns the
+ * on-chain treasury and forwards fiat to a distinct international beneficiary; on the
+ * direct-USDC rail the MSE destination is itself the recipient and must be distinct
+ * from the issuer and servicer.
  */
 export function validateIssuerBeneficiarySeparation(
   issuer: IssuerV1,
   servicer: ServicerV1,
-  treasury: TreasuryRouteV1,
-  fiatBeneficiary: FiatBeneficiaryV1,
+  destination: MseDestinationV1,
+  fiatBeneficiary: FiatBeneficiaryV1 | undefined,
 ): void {
   validateEntityReference(issuer.entityReference, "issuer.entityReference");
   validateEntityReference(servicer.entityReference, "servicer.entityReference");
   validateEntityReference(
-    treasury.ownerEntityReference,
-    "treasuryRoute.ownerEntityReference",
-  );
-  validateEntityReference(
-    fiatBeneficiary.entityReference,
-    "fiatBeneficiary.entityReference",
+    destination.entityReference,
+    "mseDestination.entityReference",
   );
 
   const issuerReference = canonicalPartyReference(issuer.entityReference);
   const servicerReference = canonicalPartyReference(servicer.entityReference);
-  const treasuryOwner = canonicalPartyReference(treasury.ownerEntityReference);
-  const beneficiaryReference = canonicalPartyReference(
-    fiatBeneficiary.entityReference,
+  const destinationReference = canonicalPartyReference(
+    destination.entityReference,
   );
 
-  invariant(
-    treasuryOwner === issuerReference,
-    "INVALID_PARTY_CONFIGURATION",
-    "the issuer must own the configured on-chain treasury route",
-  );
   invariant(
     servicerReference === issuerReference,
     "INVALID_PARTY_CONFIGURATION",
     "V1 requires the issuer to be the registered servicer",
   );
-  invariant(
-    beneficiaryReference !== issuerReference &&
-      beneficiaryReference !== treasuryOwner &&
-      beneficiaryReference !== servicerReference,
-    "INVALID_PARTY_CONFIGURATION",
-    "the fiat beneficiary must be legally distinct from the issuer treasury and servicer",
-  );
+
+  if (destination.kind === "SQUADS_FIAT_FORWARD") {
+    invariant(
+      destinationReference === issuerReference,
+      "INVALID_PARTY_CONFIGURATION",
+      "the issuer must own the Squads fiat-forward treasury",
+    );
+    invariant(
+      fiatBeneficiary !== undefined,
+      "INVALID_PARTY_CONFIGURATION",
+      "the Squads fiat-forward rail requires a distinct fiat beneficiary",
+    );
+    validateEntityReference(
+      fiatBeneficiary.entityReference,
+      "fiatBeneficiary.entityReference",
+    );
+    const beneficiaryReference = canonicalPartyReference(
+      fiatBeneficiary.entityReference,
+    );
+    invariant(
+      beneficiaryReference !== issuerReference &&
+        beneficiaryReference !== servicerReference,
+      "INVALID_PARTY_CONFIGURATION",
+      "the fiat beneficiary must be legally distinct from the issuer and servicer",
+    );
+  } else {
+    invariant(
+      fiatBeneficiary === undefined,
+      "INVALID_PARTY_CONFIGURATION",
+      "a direct-USDC MSE deal does not carry a separate fiat beneficiary",
+    );
+    invariant(
+      destinationReference !== issuerReference &&
+        destinationReference !== servicerReference,
+      "INVALID_PARTY_CONFIGURATION",
+      "a direct-USDC MSE must be legally distinct from the issuer and servicer",
+    );
+  }
 }
 
 export function validateDealV1(deal: DealV1): DealV1 {
@@ -287,21 +347,13 @@ export function validateDealV1(deal: DealV1): DealV1 {
   validateIssuerBeneficiarySeparation(
     deal.issuer,
     deal.servicer,
-    deal.treasuryRoute,
+    deal.mseDestination,
     deal.fiatBeneficiary,
   );
 
   validateContentCommitment(
     deal.issuer.legalNameCommitment,
     "issuer.legalNameCommitment",
-  );
-  validateContentCommitment(
-    deal.fiatBeneficiary.bankRouteCommitment,
-    "fiatBeneficiary.bankRouteCommitment",
-  );
-  validateContentCommitment(
-    deal.fiatBeneficiary.financingContractCommitment,
-    "fiatBeneficiary.financingContractCommitment",
   );
   validateContentCommitment(deal.assetSetCommitment, "assetSetCommitment");
   validateContentCommitment(
@@ -313,12 +365,8 @@ export function validateDealV1(deal: DealV1): DealV1 {
     deal.compliancePolicyCommitment,
     "compliancePolicyCommitment",
   );
-  validateContentCommitment(deal.fiatRouteCommitment, "fiatRouteCommitment");
   invariant(
-    deal.issuer.kind === "ISSUER" &&
-      deal.servicer.kind === "SERVICER" &&
-      deal.fiatBeneficiary.kind === "FIAT_BENEFICIARY" &&
-      deal.treasuryRoute.kind === "ISSUER_TREASURY",
+    deal.issuer.kind === "ISSUER" && deal.servicer.kind === "SERVICER",
     "INVALID_PARTY_CONFIGURATION",
     "deal parties must use their explicit V1 legal roles",
   );
@@ -327,30 +375,61 @@ export function validateDealV1(deal: DealV1): DealV1 {
     "INVALID_PARTY_CONFIGURATION",
     "the V1 token issuer must be a US entity",
   );
-  invariant(
-    /^[A-Z]{2}$/.test(deal.fiatBeneficiary.jurisdiction) &&
-      deal.fiatBeneficiary.jurisdiction !== "US",
-    "INVALID_PARTY_CONFIGURATION",
-    "the V1 fiat beneficiary must use a non-US ISO jurisdiction",
-  );
-  invariant(
-    Number.isSafeInteger(deal.treasuryRoute.squadsVaultIndex) &&
-      deal.treasuryRoute.squadsVaultIndex >= 0,
-    "INVALID_ARGUMENT",
-    "Squads vault index must be a non-negative integer",
-  );
-  validateSolanaPublicKey(
-    deal.treasuryRoute.squadsMultisig,
-    "treasuryRoute.squadsMultisig",
-  );
-  validateSolanaPublicKey(
-    deal.treasuryRoute.squadsVaultPda,
-    "treasuryRoute.squadsVaultPda",
-  );
-  validateSolanaPublicKey(
-    deal.treasuryRoute.usdcAta,
-    "treasuryRoute.usdcAta",
-  );
+  validateSolanaPublicKey(deal.mseDestination.walletOwner, "mseDestination.walletOwner");
+  validateSolanaPublicKey(deal.mseDestination.usdcAta, "mseDestination.usdcAta");
+  if (deal.mseDestination.kind === "SQUADS_FIAT_FORWARD") {
+    const fiatBeneficiary = deal.fiatBeneficiary;
+    invariant(
+      fiatBeneficiary !== undefined &&
+        fiatBeneficiary.kind === "FIAT_BENEFICIARY",
+      "INVALID_PARTY_CONFIGURATION",
+      "the Squads fiat-forward rail requires a fiat beneficiary",
+    );
+    validateContentCommitment(
+      fiatBeneficiary.bankRouteCommitment,
+      "fiatBeneficiary.bankRouteCommitment",
+    );
+    validateContentCommitment(
+      fiatBeneficiary.financingContractCommitment,
+      "fiatBeneficiary.financingContractCommitment",
+    );
+    invariant(
+      deal.fiatRouteCommitment !== undefined,
+      "INVALID_PARTY_CONFIGURATION",
+      "the Squads fiat-forward rail requires a fiat route commitment",
+    );
+    validateContentCommitment(deal.fiatRouteCommitment, "fiatRouteCommitment");
+    invariant(
+      /^[A-Z]{2}$/.test(fiatBeneficiary.jurisdiction) &&
+        fiatBeneficiary.jurisdiction !== "US",
+      "INVALID_PARTY_CONFIGURATION",
+      "the V1 fiat beneficiary must use a non-US ISO jurisdiction",
+    );
+    invariant(
+      Number.isSafeInteger(deal.mseDestination.squadsVaultIndex) &&
+        deal.mseDestination.squadsVaultIndex >= 0,
+      "INVALID_ARGUMENT",
+      "Squads vault index must be a non-negative integer",
+    );
+    validateSolanaPublicKey(
+      deal.mseDestination.squadsMultisig,
+      "mseDestination.squadsMultisig",
+    );
+    validateSolanaPublicKey(
+      deal.mseDestination.squadsVaultPda,
+      "mseDestination.squadsVaultPda",
+    );
+    const treasuryAddresses = [
+      deal.mseDestination.squadsMultisig,
+      deal.mseDestination.squadsVaultPda,
+      deal.mseDestination.usdcAta,
+    ];
+    invariant(
+      new Set(treasuryAddresses).size === treasuryAddresses.length,
+      "INVALID_PARTY_CONFIGURATION",
+      "Squads multisig, treasury vault PDA, and treasury USDC ATA must be distinct",
+    );
+  }
   validateSolanaPublicKey(
     deal.settlementAsset.mint,
     "settlementAsset.mint",
@@ -358,16 +437,6 @@ export function validateDealV1(deal: DealV1): DealV1 {
   validateSolanaPublicKey(
     deal.settlementAsset.tokenProgram,
     "settlementAsset.tokenProgram",
-  );
-  const treasuryAddresses = [
-    deal.treasuryRoute.squadsMultisig,
-    deal.treasuryRoute.squadsVaultPda,
-    deal.treasuryRoute.usdcAta,
-  ];
-  invariant(
-    new Set(treasuryAddresses).size === treasuryAddresses.length,
-    "INVALID_PARTY_CONFIGURATION",
-    "Squads multisig, treasury vault PDA, and treasury USDC ATA must be distinct",
   );
 
   const minimumRaise = parseBaseUnits(
@@ -401,9 +470,9 @@ export function validateDealV1(deal: DealV1): DealV1 {
     "V1 deals must settle in six-decimal legacy-token USDC",
   );
   invariant(
-    deal.settlementAsset.mint !== deal.fiatBeneficiary.entityReference,
+    deal.settlementAsset.mint !== deal.mseDestination.entityReference,
     "INVALID_PARTY_CONFIGURATION",
-    "a fiat beneficiary reference cannot be used as a settlement mint",
+    "an MSE destination reference cannot be used as a settlement mint",
   );
 
   const opens = validateIsoTimestamp(
@@ -425,6 +494,33 @@ export function validateDealV1(deal: DealV1): DealV1 {
     "deal timestamps must be ordered open, close, maturity, claim deadline",
   );
   return deal;
+}
+
+export function validateMseBeneficiaryV1(
+  beneficiary: MseBeneficiaryRecordV1,
+): MseBeneficiaryRecordV1 {
+  invariant(
+    beneficiary.schemaVersion === 1,
+    "INVALID_ARGUMENT",
+    "MSE beneficiary schemaVersion must be 1",
+  );
+  validateEntityReference(beneficiary.entityReference, "entityReference");
+  validateContentCommitment(beneficiary.entityHash, "entityHash");
+  validateSolanaPublicKey(beneficiary.walletOwner, "walletOwner");
+  validateSolanaPublicKey(beneficiary.usdcAta, "usdcAta");
+  invariant(
+    (["SQUADS_FIAT_FORWARD", "DIRECT_USDC"] as const).includes(
+      beneficiary.railKind,
+    ),
+    "INVALID_ARGUMENT",
+    "MSE rail kind is unsupported",
+  );
+  invariant(
+    (["ACTIVE", "SUSPENDED"] as const).includes(beneficiary.status),
+    "INVALID_ARGUMENT",
+    "MSE beneficiary status is unsupported",
+  );
+  return beneficiary;
 }
 
 export function validateSeriesV1(series: SeriesV1): SeriesV1 {
