@@ -20,8 +20,8 @@ use pod_rwa_common::{
     TreasuryMovementStatus, ACCOUNT_SCHEMA_V1, BPS_DENOMINATOR,
 };
 
-mod errors;
-mod state;
+pub mod errors;
+pub mod state;
 
 use errors::VaultError;
 use state::*;

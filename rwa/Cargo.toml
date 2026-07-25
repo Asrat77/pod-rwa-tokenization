@@ -5,6 +5,10 @@ members = [
   "programs/pod-compliance",
   "programs/pod-vault",
 ]
+# `tracer` is deliberately NOT a member. It depends on the programs with `no-entrypoint`, and
+# cargo unifies features across a workspace build — including it silently strips the
+# `entrypoint!` from the real SBF build, producing valid-but-empty 896-byte .so files.
+exclude = ["tracer"]
 resolver = "2"
 
 [workspace.package]
