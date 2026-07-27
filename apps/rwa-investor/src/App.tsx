@@ -164,6 +164,10 @@ function InvestorApp() {
   const connectAndBind = async () => {
     setError("");
     setNotice("");
+    if (isFixtureMode) {
+      setNotice("Fixture mode is read-only. Configure AppSync/Cognito to bind a Solana wallet.");
+      return;
+    }
     try {
       const connected = await connectWallet();
       setProvider(connected.provider);
@@ -236,9 +240,9 @@ function InvestorApp() {
         </div>
         <div className="topbar-actions">
           <span className="network"><i /> SOLANA DEVNET</span>
-          <button className="wallet-button" onClick={connectAndBind}>
+          <button className="wallet-button" onClick={connectAndBind} disabled={isFixtureMode}>
             <WalletCards size={16} />
-            {wallet ? short(wallet, 4) : "Connect wallet"}
+            {isFixtureMode ? "Fixture mode" : wallet ? short(wallet, 4) : "Connect wallet"}
           </button>
           <div className="user-chip">
             <span>{user.name.slice(0, 1).toUpperCase()}</span>
@@ -402,7 +406,11 @@ function InvestorApp() {
                     <small>{workspace.eligibility ? short(workspace.eligibility.wallet, 4) : "No wallet bound"}</small>
                   </div>
 
-                  {!wallet ? (
+                  {isFixtureMode ? (
+                    <button className="primary-action" onClick={connectAndBind}>
+                      <WalletCards size={17} /> Wallet binding unavailable in fixture mode
+                    </button>
+                  ) : !wallet ? (
                     <button className="primary-action" onClick={connectAndBind}>
                       <WalletCards size={17} /> Connect and verify wallet
                     </button>
