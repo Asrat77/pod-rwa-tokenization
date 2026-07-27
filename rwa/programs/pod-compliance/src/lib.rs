@@ -2556,26 +2556,26 @@ pub struct BindWallet<'info> {
 #[derive(Accounts)]
 pub struct RotateWallet<'info> {
     #[account(seeds = [COMPLIANCE_CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [PROVIDER_SEED, provider_authority.key().as_ref()],
         bump = provider_record.bump,
         constraint = provider_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub provider_record: Account<'info, ProviderRecord>,
+    pub provider_record: Box<Account<'info, ProviderRecord>>,
     #[account(
         mut,
         seeds = [INVESTOR_SEED, investor_record.opaque_id.as_ref()],
         bump = investor_record.bump,
         constraint = investor_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub investor_record: Account<'info, InvestorRecord>,
+    pub investor_record: Box<Account<'info, InvestorRecord>>,
     #[account(
         mut,
         seeds = [WALLET_BINDING_SEED, old_wallet.key().as_ref()],
         bump = old_binding.bump
     )]
-    pub old_binding: Account<'info, WalletBinding>,
+    pub old_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         init,
         payer = provider_authority,
@@ -2583,7 +2583,7 @@ pub struct RotateWallet<'info> {
         seeds = [WALLET_BINDING_SEED, new_wallet.key().as_ref()],
         bump
     )]
-    pub new_binding: Account<'info, WalletBinding>,
+    pub new_binding: Box<Account<'info, WalletBinding>>,
     pub old_wallet: Signer<'info>,
     pub new_wallet: Signer<'info>,
     #[account(mut)]
@@ -2595,25 +2595,25 @@ pub struct RotateWallet<'info> {
 #[instruction(series: Pubkey)]
 pub struct SetSeriesPermission<'info> {
     #[account(seeds = [COMPLIANCE_CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [PROVIDER_SEED, provider_authority.key().as_ref()],
         bump = provider_record.bump,
         constraint = provider_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub provider_record: Account<'info, ProviderRecord>,
+    pub provider_record: Box<Account<'info, ProviderRecord>>,
     #[account(
         seeds = [INVESTOR_SEED, investor_record.opaque_id.as_ref()],
         bump = investor_record.bump,
         constraint = investor_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub investor_record: Account<'info, InvestorRecord>,
+    pub investor_record: Box<Account<'info, InvestorRecord>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, wallet.key().as_ref()],
         bump = wallet_binding.bump,
         constraint = wallet_binding.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub wallet_binding: Account<'info, WalletBinding>,
+    pub wallet_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         init_if_needed,
         payer = provider_authority,
@@ -2621,7 +2621,7 @@ pub struct SetSeriesPermission<'info> {
         seeds = [SERIES_PERMISSION_SEED, series.as_ref(), wallet.key().as_ref()],
         bump
     )]
-    pub series_permission: Account<'info, SeriesPermission>,
+    pub series_permission: Box<Account<'info, SeriesPermission>>,
     /// CHECK: The wallet need not sign when a registered provider updates an
     /// existing permission, but its address is bound by the WalletBinding PDA.
     pub wallet: UncheckedAccount<'info>,
@@ -2679,20 +2679,20 @@ pub struct ConfigureTransferPolicy<'info> {
 #[derive(Accounts)]
 pub struct ProviderReceiptAccountControl<'info> {
     #[account(seeds = [COMPLIANCE_CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [PROVIDER_SEED, provider_authority.key().as_ref()],
         bump = provider_record.bump,
         constraint = provider_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub provider_record: Account<'info, ProviderRecord>,
+    pub provider_record: Box<Account<'info, ProviderRecord>>,
     #[account(
         seeds = [INVESTOR_SEED, investor_record.opaque_id.as_ref()],
         bump = investor_record.bump,
         constraint = investor_record.config == config.key() @ ComplianceError::InvalidLink,
         constraint = investor_record.provider_record == provider_record.key() @ ComplianceError::InvalidLink
     )]
-    pub investor_record: Account<'info, InvestorRecord>,
+    pub investor_record: Box<Account<'info, InvestorRecord>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, wallet.key().as_ref()],
         bump = wallet_binding.bump,
@@ -2700,7 +2700,7 @@ pub struct ProviderReceiptAccountControl<'info> {
         constraint = wallet_binding.investor_record == investor_record.key() @ ComplianceError::InvalidLink,
         constraint = wallet_binding.wallet == wallet.key() @ ComplianceError::WalletMismatch
     )]
-    pub wallet_binding: Account<'info, WalletBinding>,
+    pub wallet_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -2714,23 +2714,23 @@ pub struct ProviderReceiptAccountControl<'info> {
         constraint = series_permission.wallet == wallet.key() @ ComplianceError::WalletMismatch,
         constraint = series_permission.series == mint.key() @ ComplianceError::InvalidSeries
     )]
-    pub series_permission: Account<'info, SeriesPermission>,
+    pub series_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         seeds = [TRANSFER_POLICY_SEED, mint.key().as_ref()],
         bump = transfer_policy.bump,
         constraint = transfer_policy.config == config.key() @ ComplianceError::InvalidLink,
         constraint = transfer_policy.series == mint.key() @ ComplianceError::InvalidSeries
     )]
-    pub transfer_policy: Account<'info, TransferPolicy>,
+    pub transfer_policy: Box<Account<'info, TransferPolicy>>,
     #[account(mut, address = transfer_policy.series @ ComplianceError::InvalidSeries)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
         mut,
         token::mint = mint,
         token::authority = wallet,
         token::token_program = token_program
     )]
-    pub receipt_account: InterfaceAccount<'info, TokenAccount>,
+    pub receipt_account: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK: Bound through the WalletBinding PDA, InvestorRecord and
     /// SeriesPermission, then used to derive the canonical Token-2022 ATA.
     pub wallet: UncheckedAccount<'info>,
@@ -2746,20 +2746,20 @@ pub struct GovernReceiptAccountControl<'info> {
         bump = config.bump,
         has_one = governance
     )]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [PROVIDER_SEED, provider_record.authority.as_ref()],
         bump = provider_record.bump,
         constraint = provider_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub provider_record: Account<'info, ProviderRecord>,
+    pub provider_record: Box<Account<'info, ProviderRecord>>,
     #[account(
         seeds = [INVESTOR_SEED, investor_record.opaque_id.as_ref()],
         bump = investor_record.bump,
         constraint = investor_record.config == config.key() @ ComplianceError::InvalidLink,
         constraint = investor_record.provider_record == provider_record.key() @ ComplianceError::InvalidLink
     )]
-    pub investor_record: Account<'info, InvestorRecord>,
+    pub investor_record: Box<Account<'info, InvestorRecord>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, wallet.key().as_ref()],
         bump = wallet_binding.bump,
@@ -2767,7 +2767,7 @@ pub struct GovernReceiptAccountControl<'info> {
         constraint = wallet_binding.investor_record == investor_record.key() @ ComplianceError::InvalidLink,
         constraint = wallet_binding.wallet == wallet.key() @ ComplianceError::WalletMismatch
     )]
-    pub wallet_binding: Account<'info, WalletBinding>,
+    pub wallet_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -2781,23 +2781,23 @@ pub struct GovernReceiptAccountControl<'info> {
         constraint = series_permission.wallet == wallet.key() @ ComplianceError::WalletMismatch,
         constraint = series_permission.series == mint.key() @ ComplianceError::InvalidSeries
     )]
-    pub series_permission: Account<'info, SeriesPermission>,
+    pub series_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         seeds = [TRANSFER_POLICY_SEED, mint.key().as_ref()],
         bump = transfer_policy.bump,
         constraint = transfer_policy.config == config.key() @ ComplianceError::InvalidLink,
         constraint = transfer_policy.series == mint.key() @ ComplianceError::InvalidSeries
     )]
-    pub transfer_policy: Account<'info, TransferPolicy>,
+    pub transfer_policy: Box<Account<'info, TransferPolicy>>,
     #[account(mut, address = transfer_policy.series @ ComplianceError::InvalidSeries)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
         mut,
         token::mint = mint,
         token::authority = wallet,
         token::token_program = token_program
     )]
-    pub receipt_account: InterfaceAccount<'info, TokenAccount>,
+    pub receipt_account: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK: Bound through the WalletBinding PDA, InvestorRecord and
     /// SeriesPermission, then used to derive the canonical Token-2022 ATA.
     pub wallet: UncheckedAccount<'info>,
@@ -2809,19 +2809,19 @@ pub struct GovernReceiptAccountControl<'info> {
 #[derive(Accounts)]
 pub struct PermissionedBurn<'info> {
     #[account(seeds = [COMPLIANCE_CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [TRANSFER_POLICY_SEED, mint.key().as_ref()],
         bump = transfer_policy.bump,
         constraint = transfer_policy.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub transfer_policy: Account<'info, TransferPolicy>,
+    pub transfer_policy: Box<Account<'info, TransferPolicy>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, source_owner.key().as_ref()],
         bump = source_binding.bump,
         constraint = source_binding.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub source_binding: Account<'info, WalletBinding>,
+    pub source_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -2831,21 +2831,21 @@ pub struct PermissionedBurn<'info> {
         bump = source_permission.bump,
         constraint = source_permission.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub source_permission: Account<'info, SeriesPermission>,
+    pub source_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         seeds = [INVESTOR_SEED, source_binding.opaque_id.as_ref()],
         bump = source_investor.bump,
         constraint = source_investor.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub source_investor: Account<'info, InvestorRecord>,
+    pub source_investor: Box<Account<'info, InvestorRecord>>,
     #[account(
         mut,
         token::mint = mint,
         token::authority = source_owner
     )]
-    pub source_token: InterfaceAccount<'info, TokenAccount>,
+    pub source_token: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut, address = transfer_policy.series @ ComplianceError::InvalidSeries)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(address = transfer_policy.burn_caller @ ComplianceError::InvalidAuthority)]
     pub burn_caller: Signer<'info>,
     pub source_owner: Signer<'info>,
@@ -2906,13 +2906,13 @@ pub struct PrepareRecovery<'info> {
         bump = config.bump,
         has_one = governance
     )]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [INVESTOR_SEED, investor_record.opaque_id.as_ref()],
         bump = investor_record.bump,
         constraint = investor_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub investor_record: Account<'info, InvestorRecord>,
+    pub investor_record: Box<Account<'info, InvestorRecord>>,
     #[account(
         mut,
         seeds = [
@@ -2923,18 +2923,18 @@ pub struct PrepareRecovery<'info> {
         bump = recovery_order.bump,
         constraint = recovery_order.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub recovery_order: Account<'info, RecoveryOrder>,
+    pub recovery_order: Box<Account<'info, RecoveryOrder>>,
     #[account(
         seeds = [TRANSFER_POLICY_SEED, mint.key().as_ref()],
         bump = transfer_policy.bump,
         constraint = transfer_policy.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub transfer_policy: Account<'info, TransferPolicy>,
+    pub transfer_policy: Box<Account<'info, TransferPolicy>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, recovery_order.old_wallet.as_ref()],
         bump = old_binding.bump
     )]
-    pub old_binding: Account<'info, WalletBinding>,
+    pub old_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         init,
         payer = governance,
@@ -2942,7 +2942,7 @@ pub struct PrepareRecovery<'info> {
         seeds = [WALLET_BINDING_SEED, recovery_order.new_wallet.as_ref()],
         bump
     )]
-    pub new_binding: Account<'info, WalletBinding>,
+    pub new_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -2951,7 +2951,7 @@ pub struct PrepareRecovery<'info> {
         ],
         bump = old_permission.bump
     )]
-    pub old_permission: Account<'info, SeriesPermission>,
+    pub old_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         init,
         payer = governance,
@@ -2963,10 +2963,10 @@ pub struct PrepareRecovery<'info> {
         ],
         bump
     )]
-    pub new_permission: Account<'info, SeriesPermission>,
-    pub old_receipt_ata: InterfaceAccount<'info, TokenAccount>,
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub new_receipt_ata: InterfaceAccount<'info, TokenAccount>,
+    pub new_permission: Box<Account<'info, SeriesPermission>>,
+    pub old_receipt_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
+    pub new_receipt_ata: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(address = recovery_order.new_wallet @ ComplianceError::InvalidRecoveryOrder)]
     pub new_wallet: Signer<'info>,
     #[account(mut)]
@@ -2983,14 +2983,14 @@ pub struct ExecuteRecovery<'info> {
         bump = config.bump,
         has_one = governance
     )]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         mut,
         seeds = [INVESTOR_SEED, investor_record.opaque_id.as_ref()],
         bump = investor_record.bump,
         constraint = investor_record.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub investor_record: Account<'info, InvestorRecord>,
+    pub investor_record: Box<Account<'info, InvestorRecord>>,
     #[account(
         mut,
         seeds = [
@@ -3001,25 +3001,25 @@ pub struct ExecuteRecovery<'info> {
         bump = recovery_order.bump,
         constraint = recovery_order.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub recovery_order: Account<'info, RecoveryOrder>,
+    pub recovery_order: Box<Account<'info, RecoveryOrder>>,
     #[account(
         seeds = [TRANSFER_POLICY_SEED, mint.key().as_ref()],
         bump = transfer_policy.bump,
         constraint = transfer_policy.config == config.key() @ ComplianceError::InvalidLink
     )]
-    pub transfer_policy: Account<'info, TransferPolicy>,
+    pub transfer_policy: Box<Account<'info, TransferPolicy>>,
     #[account(
         mut,
         seeds = [WALLET_BINDING_SEED, recovery_order.old_wallet.as_ref()],
         bump = old_binding.bump
     )]
-    pub old_binding: Account<'info, WalletBinding>,
+    pub old_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         mut,
         seeds = [WALLET_BINDING_SEED, recovery_order.new_wallet.as_ref()],
         bump = new_binding.bump
     )]
-    pub new_binding: Account<'info, WalletBinding>,
+    pub new_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         mut,
         seeds = [
@@ -3029,7 +3029,7 @@ pub struct ExecuteRecovery<'info> {
         ],
         bump = old_permission.bump
     )]
-    pub old_permission: Account<'info, SeriesPermission>,
+    pub old_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -3038,10 +3038,10 @@ pub struct ExecuteRecovery<'info> {
         ],
         bump = new_permission.bump
     )]
-    pub new_permission: Account<'info, SeriesPermission>,
-    pub old_receipt_ata: InterfaceAccount<'info, TokenAccount>,
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub new_receipt_ata: InterfaceAccount<'info, TokenAccount>,
+    pub new_permission: Box<Account<'info, SeriesPermission>>,
+    pub old_receipt_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
+    pub new_receipt_ata: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(address = recovery_order.new_wallet @ ComplianceError::InvalidRecoveryOrder)]
     pub new_wallet: Signer<'info>,
     pub governance: Signer<'info>,
@@ -3084,10 +3084,10 @@ pub struct InitializeExtraAccountMetaList<'info> {
 #[derive(Accounts)]
 pub struct TransferHook<'info> {
     #[account(token::mint = mint)]
-    pub source_token: InterfaceAccount<'info, TokenAccount>,
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub source_token: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(token::mint = mint)]
-    pub destination_token: InterfaceAccount<'info, TokenAccount>,
+    pub destination_token: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK: Token-2022 supplies the transfer authority. Eligibility is
     /// evaluated against the token-account owners, not this delegate.
     pub owner: UncheckedAccount<'info>,
@@ -3098,22 +3098,22 @@ pub struct TransferHook<'info> {
     /// CHECK: Validated by its canonical Transfer Hook PDA.
     pub extra_account_meta_list: UncheckedAccount<'info>,
     #[account(seeds = [COMPLIANCE_CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, ComplianceConfig>,
+    pub config: Box<Account<'info, ComplianceConfig>>,
     #[account(
         seeds = [TRANSFER_POLICY_SEED, mint.key().as_ref()],
         bump = transfer_policy.bump
     )]
-    pub transfer_policy: Account<'info, TransferPolicy>,
+    pub transfer_policy: Box<Account<'info, TransferPolicy>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, source_token.owner.as_ref()],
         bump = source_binding.bump
     )]
-    pub source_binding: Account<'info, WalletBinding>,
+    pub source_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         seeds = [WALLET_BINDING_SEED, destination_token.owner.as_ref()],
         bump = destination_binding.bump
     )]
-    pub destination_binding: Account<'info, WalletBinding>,
+    pub destination_binding: Box<Account<'info, WalletBinding>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -3122,7 +3122,7 @@ pub struct TransferHook<'info> {
         ],
         bump = source_permission.bump
     )]
-    pub source_permission: Account<'info, SeriesPermission>,
+    pub source_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         seeds = [
             SERIES_PERMISSION_SEED,
@@ -3131,17 +3131,17 @@ pub struct TransferHook<'info> {
         ],
         bump = destination_permission.bump
     )]
-    pub destination_permission: Account<'info, SeriesPermission>,
+    pub destination_permission: Box<Account<'info, SeriesPermission>>,
     #[account(
         seeds = [INVESTOR_SEED, source_binding.opaque_id.as_ref()],
         bump = source_investor.bump
     )]
-    pub source_investor: Account<'info, InvestorRecord>,
+    pub source_investor: Box<Account<'info, InvestorRecord>>,
     #[account(
         seeds = [INVESTOR_SEED, destination_binding.opaque_id.as_ref()],
         bump = destination_investor.bump
     )]
-    pub destination_investor: Account<'info, InvestorRecord>,
+    pub destination_investor: Box<Account<'info, InvestorRecord>>,
 }
 
 #[event]

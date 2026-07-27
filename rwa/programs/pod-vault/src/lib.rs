@@ -1585,12 +1585,12 @@ pub struct SetMseBeneficiaryStatus<'info> {
 #[instruction(args: CreateDealArgs)]
 pub struct CreateDeal<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(
         seeds = [b"asset", settlement_mint.key().as_ref()],
         bump = settlement_asset.bump
     )]
-    pub settlement_asset: Account<'info, SettlementAssetConfig>,
+    pub settlement_asset: Box<Account<'info, SettlementAssetConfig>>,
     #[account(
         init,
         payer = governance,
@@ -1598,7 +1598,7 @@ pub struct CreateDeal<'info> {
         seeds = [b"deal_terms", args.deal_id.as_ref()],
         bump
     )]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(
         init,
         payer = governance,
@@ -1606,7 +1606,7 @@ pub struct CreateDeal<'info> {
         seeds = [b"deal_state", args.deal_id.as_ref()],
         bump
     )]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(
         init,
         payer = governance,
@@ -1614,22 +1614,22 @@ pub struct CreateDeal<'info> {
         seeds = [b"series", args.deal_id.as_ref(), &[0]],
         bump
     )]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(
         seeds = [b"mse-beneficiary", mse_beneficiary.entity_hash.as_ref()],
         bump = mse_beneficiary.bump
     )]
-    pub mse_beneficiary: Account<'info, MseBeneficiary>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
-    pub receipt_mint: InterfaceAccount<'info, Mint>,
-    pub compliance_config: Account<'info, pod_compliance::ComplianceConfig>,
-    pub transfer_policy: Account<'info, pod_compliance::TransferPolicy>,
+    pub mse_beneficiary: Box<Account<'info, MseBeneficiary>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub receipt_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub compliance_config: Box<Account<'info, pod_compliance::ComplianceConfig>>,
+    pub transfer_policy: Box<Account<'info, pod_compliance::TransferPolicy>>,
     #[account(mut)]
-    pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
+    pub subscription_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
-    pub mse_usdc_ata: InterfaceAccount<'info, TokenAccount>,
-    pub compliance_escrow_ata: InterfaceAccount<'info, TokenAccount>,
+    pub repayment_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub mse_usdc_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub compliance_escrow_ata: Box<InterfaceAccount<'info, TokenAccount>>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     pub receipt_token_program: Interface<'info, TokenInterface>,
     #[account(mut)]
@@ -1641,11 +1641,11 @@ pub struct CreateDeal<'info> {
 #[instruction(args: ConfigureMilestoneArgs)]
 pub struct ConfigureMilestone<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(mut, seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(
         init,
         payer = governance,
@@ -1653,7 +1653,7 @@ pub struct ConfigureMilestone<'info> {
         seeds = [b"milestone", deal_terms.deal_id.as_ref(), &[args.index]],
         bump
     )]
-    pub milestone: Account<'info, ReleaseMilestone>,
+    pub milestone: Box<Account<'info, ReleaseMilestone>>,
     #[account(mut)]
     pub governance: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -1662,11 +1662,11 @@ pub struct ConfigureMilestone<'info> {
 #[derive(Accounts)]
 pub struct OpenSubscription<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(mut, seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     pub governance: Signer<'info>,
 }
 
@@ -1674,11 +1674,11 @@ pub struct OpenSubscription<'info> {
 #[instruction(args: ApproveInvestorArgs)]
 pub struct ApproveInvestor<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(
         init,
         payer = compliance_authority,
@@ -1686,7 +1686,7 @@ pub struct ApproveInvestor<'info> {
         seeds = [b"position", deal_terms.deal_id.as_ref(), args.investor_id.as_ref()],
         bump
     )]
-    pub position: Account<'info, InvestorDealPosition>,
+    pub position: Box<Account<'info, InvestorDealPosition>>,
     #[account(mut)]
     pub compliance_authority: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -1695,15 +1695,15 @@ pub struct ApproveInvestor<'info> {
 #[derive(Accounts)]
 pub struct UpdateInvestorStatus<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(
         mut,
         seeds = [b"position", deal_terms.deal_id.as_ref(), position.investor_id.as_ref()],
         bump = position.bump
     )]
-    pub position: Account<'info, InvestorDealPosition>,
+    pub position: Box<Account<'info, InvestorDealPosition>>,
     pub compliance_authority: Signer<'info>,
 }
 
@@ -1711,24 +1711,24 @@ pub struct UpdateInvestorStatus<'info> {
 #[instruction(args: AmountWithNonceArgs)]
 pub struct Subscribe<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(mut, seeds = [b"series", deal_terms.deal_id.as_ref(), &[0]], bump = series.bump)]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(
         mut,
         seeds = [b"position", deal_terms.deal_id.as_ref(), position.investor_id.as_ref()],
         bump = position.bump
     )]
-    pub position: Account<'info, InvestorDealPosition>,
-    pub compliance_config: Account<'info, pod_compliance::ComplianceConfig>,
-    pub transfer_policy: Account<'info, pod_compliance::TransferPolicy>,
-    pub investor_record: Account<'info, pod_compliance::InvestorRecord>,
-    pub wallet_binding: Account<'info, pod_compliance::WalletBinding>,
-    pub series_permission: Account<'info, pod_compliance::SeriesPermission>,
+    pub position: Box<Account<'info, InvestorDealPosition>>,
+    pub compliance_config: Box<Account<'info, pod_compliance::ComplianceConfig>>,
+    pub transfer_policy: Box<Account<'info, pod_compliance::TransferPolicy>>,
+    pub investor_record: Box<Account<'info, pod_compliance::InvestorRecord>>,
+    pub wallet_binding: Box<Account<'info, pod_compliance::WalletBinding>>,
+    pub series_permission: Box<Account<'info, pod_compliance::SeriesPermission>>,
     #[account(
         init_if_needed,
         payer = investor,
@@ -1741,17 +1741,17 @@ pub struct Subscribe<'info> {
         ],
         bump
     )]
-    pub operation_receipt: Account<'info, OperationReceipt>,
+    pub operation_receipt: Box<Account<'info, OperationReceipt>>,
     #[account(mut)]
-    pub investor_usdc: InterfaceAccount<'info, TokenAccount>,
+    pub investor_usdc: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
+    pub subscription_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub investor_receipt: InterfaceAccount<'info, TokenAccount>,
+    pub investor_receipt: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut)]
-    pub receipt_mint: InterfaceAccount<'info, Mint>,
+    pub receipt_mint: Box<InterfaceAccount<'info, Mint>>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     pub receipt_token_program: Interface<'info, TokenInterface>,
     #[account(mut)]
@@ -1762,13 +1762,13 @@ pub struct Subscribe<'info> {
 #[derive(Accounts)]
 pub struct FinalizeSubscription<'info> {
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(mut, seeds = [b"series", deal_terms.deal_id.as_ref(), &[0]], bump = series.bump)]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(mut)]
-    pub receipt_mint: InterfaceAccount<'info, Mint>,
+    pub receipt_mint: Box<InterfaceAccount<'info, Mint>>,
     pub receipt_token_program: Interface<'info, TokenInterface>,
     pub finalizer: Signer<'info>,
 }
@@ -1777,19 +1777,19 @@ pub struct FinalizeSubscription<'info> {
 #[instruction(args: AmountWithNonceArgs)]
 pub struct ClaimRefund<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(mut, seeds = [b"series", deal_terms.deal_id.as_ref(), &[0]], bump = series.bump)]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(
         mut,
         seeds = [b"position", deal_terms.deal_id.as_ref(), position.investor_id.as_ref()],
         bump = position.bump
     )]
-    pub position: Account<'info, InvestorDealPosition>,
+    pub position: Box<Account<'info, InvestorDealPosition>>,
     #[account(
         init_if_needed,
         payer = investor,
@@ -1802,16 +1802,16 @@ pub struct ClaimRefund<'info> {
         ],
         bump
     )]
-    pub operation_receipt: Account<'info, OperationReceipt>,
+    pub operation_receipt: Box<Account<'info, OperationReceipt>>,
     #[account(mut)]
-    pub investor_receipt: InterfaceAccount<'info, TokenAccount>,
+    pub investor_receipt: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub receipt_mint: InterfaceAccount<'info, Mint>,
+    pub receipt_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut)]
-    pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
+    pub subscription_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub investor_usdc: InterfaceAccount<'info, TokenAccount>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub investor_usdc: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     pub receipt_token_program: Interface<'info, TokenInterface>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     /// CHECK: pod_compliance validates the config discriminator, owner, and links.
@@ -1834,22 +1834,22 @@ pub struct ClaimRefund<'info> {
 #[derive(Accounts)]
 pub struct ScheduleRelease<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(
         mut,
         seeds = [b"milestone", deal_terms.deal_id.as_ref(), &[milestone.index]],
         bump = milestone.bump
     )]
-    pub milestone: Account<'info, ReleaseMilestone>,
+    pub milestone: Box<Account<'info, ReleaseMilestone>>,
     /// CHECK: owner, discriminator, identity, revision, decision and freshness are validated.
     pub oracle_gate_head: UncheckedAccount<'info>,
     /// CHECK: owner, discriminator, head link, exact hash and exact revision are validated.
     pub oracle_gate_revision: UncheckedAccount<'info>,
-    pub previous_treasury_movement: Option<Account<'info, TreasuryMovement>>,
+    pub previous_treasury_movement: Option<Box<Account<'info, TreasuryMovement>>>,
     #[account(
         init,
         payer = treasury_authority,
@@ -1857,7 +1857,7 @@ pub struct ScheduleRelease<'info> {
         seeds = [b"treasury_movement", deal_terms.deal_id.as_ref(), &[milestone.index]],
         bump
     )]
-    pub treasury_movement: Account<'info, TreasuryMovement>,
+    pub treasury_movement: Box<Account<'info, TreasuryMovement>>,
     pub risk_authority: Signer<'info>,
     #[account(mut)]
     pub treasury_authority: Signer<'info>,
@@ -1867,33 +1867,33 @@ pub struct ScheduleRelease<'info> {
 #[derive(Accounts)]
 pub struct CancelRelease<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut)]
-    pub milestone: Account<'info, ReleaseMilestone>,
+    pub milestone: Box<Account<'info, ReleaseMilestone>>,
     #[account(mut)]
-    pub treasury_movement: Account<'info, TreasuryMovement>,
+    pub treasury_movement: Box<Account<'info, TreasuryMovement>>,
     pub guardian: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct ExecuteRelease<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(mut)]
-    pub milestone: Account<'info, ReleaseMilestone>,
+    pub milestone: Box<Account<'info, ReleaseMilestone>>,
     #[account(mut)]
-    pub treasury_movement: Account<'info, TreasuryMovement>,
+    pub treasury_movement: Box<Account<'info, TreasuryMovement>>,
     #[account(mut)]
-    pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
+    pub subscription_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub mse_usdc_ata: InterfaceAccount<'info, TokenAccount>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub mse_usdc_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     /// CHECK: revalidated immediately before transfer to reject superseding corrections.
     pub oracle_gate_head: UncheckedAccount<'info>,
@@ -1905,9 +1905,9 @@ pub struct ExecuteRelease<'info> {
 #[derive(Accounts)]
 pub struct UpdateTreasuryMovement<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(
         mut,
         seeds = [
@@ -1917,7 +1917,7 @@ pub struct UpdateTreasuryMovement<'info> {
         ],
         bump = treasury_movement.bump
     )]
-    pub treasury_movement: Account<'info, TreasuryMovement>,
+    pub treasury_movement: Box<Account<'info, TreasuryMovement>>,
     pub authority: Signer<'info>,
 }
 
@@ -1925,9 +1925,9 @@ pub struct UpdateTreasuryMovement<'info> {
 #[instruction(args: AmountWithNonceArgs)]
 pub struct DepositRepayment<'info> {
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(
         init_if_needed,
         payer = payer,
@@ -1940,12 +1940,12 @@ pub struct DepositRepayment<'info> {
         ],
         bump
     )]
-    pub operation_receipt: Account<'info, OperationReceipt>,
+    pub operation_receipt: Box<Account<'info, OperationReceipt>>,
     #[account(mut)]
-    pub payer_usdc: InterfaceAccount<'info, TokenAccount>,
+    pub payer_usdc: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub repayment_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -1955,21 +1955,21 @@ pub struct DepositRepayment<'info> {
 #[derive(Accounts)]
 pub struct SyncRepaymentSurplus<'info> {
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(mut)]
-    pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
+    pub repayment_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 }
 
 #[derive(Accounts)]
 pub struct AllocateRepaymentSurplus<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     pub governance: Signer<'info>,
 }
 
@@ -1985,11 +1985,11 @@ pub struct EnterDefaultRecovery<'info> {
 #[derive(Accounts)]
 pub struct FinalizeSettlement<'info> {
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(seeds = [b"series", deal_terms.deal_id.as_ref(), &[0]], bump = series.bump)]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(
         init,
         payer = finalizer,
@@ -1997,12 +1997,12 @@ pub struct FinalizeSettlement<'info> {
         seeds = [b"settlement", deal_terms.deal_id.as_ref()],
         bump
     )]
-    pub settlement: Account<'info, SettlementSnapshot>,
+    pub settlement: Box<Account<'info, SettlementSnapshot>>,
     #[account(mut)]
-    pub subscription_vault: InterfaceAccount<'info, TokenAccount>,
+    pub subscription_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub repayment_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     #[account(mut)]
     pub finalizer: Signer<'info>,
@@ -2013,21 +2013,21 @@ pub struct FinalizeSettlement<'info> {
 #[instruction(args: RedeemArgs)]
 pub struct Redeem<'info> {
     #[account(seeds = [b"protocol"], bump = protocol_config.bump)]
-    pub protocol_config: Account<'info, ProtocolConfig>,
+    pub protocol_config: Box<Account<'info, ProtocolConfig>>,
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(mut, seeds = [b"series", deal_terms.deal_id.as_ref(), &[0]], bump = series.bump)]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(mut, seeds = [b"settlement", deal_terms.deal_id.as_ref()], bump = settlement.bump)]
-    pub settlement: Account<'info, SettlementSnapshot>,
+    pub settlement: Box<Account<'info, SettlementSnapshot>>,
     #[account(
         mut,
         seeds = [b"position", deal_terms.deal_id.as_ref(), position.investor_id.as_ref()],
         bump = position.bump
     )]
-    pub position: Account<'info, InvestorDealPosition>,
+    pub position: Box<Account<'info, InvestorDealPosition>>,
     #[account(
         init_if_needed,
         payer = investor,
@@ -2040,18 +2040,18 @@ pub struct Redeem<'info> {
         ],
         bump
     )]
-    pub operation_receipt: Account<'info, OperationReceipt>,
+    pub operation_receipt: Box<Account<'info, OperationReceipt>>,
     #[account(mut)]
-    pub investor_receipt: InterfaceAccount<'info, TokenAccount>,
+    pub investor_receipt: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub receipt_mint: InterfaceAccount<'info, Mint>,
+    pub receipt_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut)]
-    pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
+    pub repayment_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub investor_usdc: InterfaceAccount<'info, TokenAccount>,
+    pub investor_usdc: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub compliance_escrow_ata: InterfaceAccount<'info, TokenAccount>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub compliance_escrow_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     pub receipt_token_program: Interface<'info, TokenInterface>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     /// CHECK: pod_compliance validates the config discriminator, owner, and links.
@@ -2074,18 +2074,18 @@ pub struct Redeem<'info> {
 #[derive(Accounts)]
 pub struct WithdrawIssuerDistribution<'info> {
     #[account(seeds = [b"deal_terms", deal_terms.deal_id.as_ref()], bump = deal_terms.bump)]
-    pub deal_terms: Account<'info, DealTerms>,
+    pub deal_terms: Box<Account<'info, DealTerms>>,
     #[account(mut, seeds = [b"deal_state", deal_terms.deal_id.as_ref()], bump = deal_state.bump)]
-    pub deal_state: Account<'info, DealStateAccount>,
+    pub deal_state: Box<Account<'info, DealStateAccount>>,
     #[account(seeds = [b"series", deal_terms.deal_id.as_ref(), &[0]], bump = series.bump)]
-    pub series: Account<'info, Series>,
+    pub series: Box<Account<'info, Series>>,
     #[account(mut, seeds = [b"settlement", deal_terms.deal_id.as_ref()], bump = settlement.bump)]
-    pub settlement: Account<'info, SettlementSnapshot>,
+    pub settlement: Box<Account<'info, SettlementSnapshot>>,
     #[account(mut)]
-    pub repayment_vault: InterfaceAccount<'info, TokenAccount>,
+    pub repayment_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
-    pub mse_usdc_ata: InterfaceAccount<'info, TokenAccount>,
-    pub settlement_mint: InterfaceAccount<'info, Mint>,
+    pub mse_usdc_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
     pub settlement_token_program: Interface<'info, TokenInterface>,
     pub mse_treasury: Signer<'info>,
 }

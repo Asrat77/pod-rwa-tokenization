@@ -45,3 +45,25 @@ The release package links:
 
 Any unexplained token, fiat, fee, supply, authority, gate, or evidence mismatch
 is a failed release criterion, regardless of total value.
+
+## Current RPC evidence
+
+The local-validator RPC tracers exercise compiled SBF programs with finalized
+transactions and read the resulting accounts and token balances back from
+Solana:
+
+- [`tracer.mjs`](../../rwa/tracer/rpc/tracer.mjs) proves protocol
+  initialization, multiple registered payout destinations, governance-only
+  registration, and suspension without destination mutation (17 assertions).
+- [`phase2.mjs`](../../rwa/tracer/rpc/phase2.mjs) proves the original V1
+  `SQUADS_FIAT_FORWARD` route from two 15-USDC subscriptions through the
+  30/30/30/10 releases, preceding-wire reconciliation gates, 33-USDC reverse
+  repayment, settlement, permissioned burn, and two exact 16.5-USDC
+  redemptions (38 assertions).
+
+This evidence directly exercises AC-01, AC-03, AC-04, AC-06 through AC-08,
+AC-11, AC-14, and the happy-path portion of AC-16. It does not mark the release
+complete. Failed-raise refunds, default, restricted claims, wallet recovery,
+counterfeit substitutions, both-farm replay, devnet deployment, migration, and
+indexer mismatch scenarios remain required by AC-09, AC-10, AC-12, AC-13, and
+AC-17 through AC-21.

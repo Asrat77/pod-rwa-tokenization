@@ -499,7 +499,7 @@ pub struct PublishValuation<'info> {
 #[instruction(args: PublishDealGateArgs)]
 pub struct PublishDealGate<'info> {
     #[account(seeds = [ORACLE_CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, OracleConfig>,
+    pub config: Box<Account<'info, OracleConfig>>,
     #[account(
         init_if_needed,
         payer = payer,
@@ -511,7 +511,7 @@ pub struct PublishDealGate<'info> {
         ],
         bump
     )]
-    pub head: Account<'info, DealGateHead>,
+    pub head: Box<Account<'info, DealGateHead>>,
     #[account(
         init_if_needed,
         payer = payer,
@@ -523,7 +523,7 @@ pub struct PublishDealGate<'info> {
         ],
         bump
     )]
-    pub revision: Account<'info, DealGateRevision>,
+    pub revision: Box<Account<'info, DealGateRevision>>,
     pub publisher: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
