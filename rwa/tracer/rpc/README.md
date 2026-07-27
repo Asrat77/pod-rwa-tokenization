@@ -2,16 +2,21 @@
 
 Sends real transactions to a `solana-test-validator` running the SBF-compiled programs, then
 reads the accounts and token balances back. `tracer.mjs` covers protocol and MSE registration.
-`phase2.mjs` covers the original V1 US-issuer and international-MSE lifecycle.
+`phase2.mjs` covers the current US-issuer on-chain happy-path vertical slice.
 
 ## Run
+
+Run setup commands from the repository root. Install the tracer's pinned
+JavaScript dependencies:
+
+    npm --prefix rwa/tracer/rpc ci
 
 Build each program **in isolation** (a whole-workspace build silently emits empty 896-byte
 `.so` files — see `../../Cargo.toml`):
 
-    cd rwa/programs/pod-oracle     && cargo-build-sbf
-    cd rwa/programs/pod-compliance && cargo-build-sbf
-    cd rwa/programs/pod-vault      && cargo-build-sbf
+    (cd rwa/programs/pod-oracle && cargo-build-sbf)
+    (cd rwa/programs/pod-compliance && cargo-build-sbf)
+    (cd rwa/programs/pod-vault && cargo-build-sbf)
 
 Verify the artifacts before trusting the exit code — each `.so` must be hundreds of KB and the
 three MD5s must differ:
@@ -27,10 +32,7 @@ Start the validator with the programs at their declared ids:
 
 Then run the registration tracer:
 
-    cd rwa/tracer/rpc && node tracer.mjs
-
-`node_modules` is a symlink to `apps/rwa-investor/node_modules` (web3.js is already installed
-there); ESM resolves from the script's own directory, not the cwd.
+    node rwa/tracer/rpc/tracer.mjs
 
 ## Phase 1 coverage
 
@@ -67,19 +69,29 @@ Start a clean validator with the v11 binary loaded at the canonical Token-2022 p
 
 Then:
 
-    cd rwa/tracer/rpc && node phase2.mjs
+    node rwa/tracer/rpc/phase2.mjs
+
+The local validator cannot access Circle's devnet mint account, so the tracer creates an
+ephemeral six-decimal classic SPL settlement mint and registers it through the same settlement
+asset checks. Devnet uses the manifest-pinned Circle mint
+`4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`; the deal, custody, authority and accounting
+instructions are unchanged.
 
 ## Phase 2 coverage
 
-1. US-issuer treasury and international-MSE fiat-beneficiary roles remain distinct.
+1. The registered `SQUADS_FIAT_FORWARD` route sends USDC only to the US issuer treasury. The
+   existing V1 account schema commits the international fiat route through bank-route and
+   financing-contract hashes; a separate `FiatBeneficiary` account remains an architecture gap.
 2. The receipt mint has DefaultAccountState, PermanentDelegate, TransferHook, MetadataPointer
    and PermissionedBurn, with the locked Series and compliance authorities.
 3. Two compliant investors subscribe 15 USDC each; the hard cap and receipt-supply invariants
    are enforced.
 4. Capital close and T1/T2/T3 release 30/30/30/10 percent only to the US issuer treasury.
-5. Later releases fail until the preceding conversion and SWIFT movement is bank-confirmed and
-   reconciled.
-6. The reverse fiat flow deposits 33 USDC into the isolated repayment vault.
+5. A later release fails while the preceding movement remains
+   `USDC_RELEASED` and unreconciled, then succeeds after conversion, SWIFT,
+   bank-confirmation and reconciliation.
+6. The on-chain leg of the reverse flow deposits 33 USDC into the isolated
+   repayment vault.
 7. A direct holder burn fails; governed redemption burns the full receipt supply and pays
    16.5 USDC to each investor without losing a base unit.
 

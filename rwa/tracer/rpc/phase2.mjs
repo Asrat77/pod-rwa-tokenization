@@ -1,9 +1,11 @@
-// Phase 2 RPC tracer — durable deal bootstrap and subscriptions.
+// Phase 2 RPC tracer — US-issuer on-chain happy-path vertical slice.
 //
 // This tracer uses the production account model against real SBF programs on
 // solana-test-validator. It deliberately keeps the original V1 treasury route:
-// USDC is released only to the US issuer treasury; the MSE is the fiat
-// beneficiary represented by the SQUADS_FIAT_FORWARD registry rail.
+// USDC is released only to the US issuer's registered SQUADS_FIAT_FORWARD
+// treasury route. The current V1 account schema commits the international fiat
+// beneficiary through the approved bank-route and financing-contract hashes;
+// it does not yet store a separate FiatBeneficiary account.
 //
 // Run from this directory after starting the validator described in README.md:
 //   node phase2.mjs
@@ -58,6 +60,7 @@ const RECEIPT_EXTENSIONS = [
 const RECEIPT_EXTENSION_HASH_DOMAIN = Buffer.from("POD:RWA:RECEIPT_EXTENSIONS:V1");
 const TOKEN_2022_MINT_TLV_OFFSET = 166;
 const USDC = 1_000_000n;
+const RELEASE_DELAY_SECONDS = 1;
 
 const hash = (value) => createHash("sha256").update(value).digest();
 const fixtureHash = (label) => hash(Buffer.from(`POD:RWA:TRACER:${label}`));
@@ -176,6 +179,7 @@ const emptyContentRef = () =>
 
 let passed = 0;
 let failed = 0;
+let latestSuccessfulSignature = null;
 
 function check(label, condition, detail = "") {
   if (condition) {
@@ -190,18 +194,19 @@ function check(label, condition, detail = "") {
 async function send(connection, payer, instructions, signers = []) {
   const tx = new Transaction().add(...(Array.isArray(instructions) ? instructions : [instructions]));
   tx.feePayer = payer.publicKey;
-  tx.recentBlockhash = (await connection.getLatestBlockhash("finalized")).blockhash;
+  tx.recentBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
   tx.sign(payer, ...signers);
   const signature = await connection.sendRawTransaction(tx.serialize(), {
     skipPreflight: false,
   });
   const result = await connection.confirmTransaction(signature, "confirmed");
   if (result.value.err) throw new Error(`transaction ${signature} failed: ${JSON.stringify(result.value.err)}`);
+  latestSuccessfulSignature = signature;
   return signature;
 }
 
 async function sendV0(connection, payer, instructions, lookupTables, signers = []) {
-  const recentBlockhash = (await connection.getLatestBlockhash("finalized")).blockhash;
+  const recentBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
   const message = new TransactionMessage({
     payerKey: payer.publicKey,
     recentBlockhash,
@@ -214,6 +219,7 @@ async function sendV0(connection, payer, instructions, lookupTables, signers = [
   });
   const result = await connection.confirmTransaction(signature, "confirmed");
   if (result.value.err) throw new Error(`transaction ${signature} failed: ${JSON.stringify(result.value.err)}`);
+  latestSuccessfulSignature = signature;
   return signature;
 }
 
@@ -254,14 +260,27 @@ async function createLookupTable(connection, payer, addresses) {
   throw new Error("address lookup table was not activated");
 }
 
-async function expectRejected(label, action) {
-  let rejected = false;
+async function expectRejected(label, action, { programId, customCode } = {}) {
+  let matched = false;
+  let detail = "transaction unexpectedly succeeded";
   try {
     await action();
-  } catch {
-    rejected = true;
+  } catch (error) {
+    const errorText = [
+      error instanceof Error ? error.message : String(error),
+      ...(Array.isArray(error?.logs) ? error.logs : []),
+    ].join("\n");
+    const programMatched = !programId
+      || errorText.includes(`Program ${programId.toBase58()} failed`);
+    const codeMatched = customCode === undefined
+      || errorText.includes(`custom program error: 0x${customCode.toString(16)}`)
+      || errorText.includes(`"Custom":${customCode}`);
+    matched = programMatched && codeMatched;
+    detail = matched
+      ? ""
+      : `wrong rejection: ${errorText.split("\n")[0]}`;
   }
-  check(label, rejected);
+  check(label, matched, detail);
 }
 
 async function fund(connection, ...publicKeys) {
@@ -472,7 +491,7 @@ function createDealIx({
   governance,
   dealId,
   issuerEntityHash,
-  beneficiaryEntityHash,
+  treasuryRouteEntityHash,
   settlementMint,
   receiptMint,
   subscriptionVault,
@@ -515,7 +534,7 @@ function createDealIx({
     u64(30n * USDC),
     u16(1_000),
     u16(0),
-    u32(0),
+    u32(RELEASE_DELAY_SECONDS),
     u8(4),
     extensionSetHash,
   );
@@ -527,7 +546,7 @@ function createDealIx({
       meta(dealTerms, false, true),
       meta(dealState, false, true),
       meta(series, false, true),
-      meta(mseBeneficiaryPda(beneficiaryEntityHash)),
+      meta(mseBeneficiaryPda(treasuryRouteEntityHash)),
       meta(settlementMint),
       meta(receiptMint),
       meta(complianceConfigPda()),
@@ -1342,15 +1361,18 @@ async function main() {
     settlementMint,
     platformTreasury.publicKey,
   );
-  const beneficiaryEntityHash = fixtureHash("international-mse");
+  const treasuryRouteEntityHash = fixtureHash("us-issuer-squads-treasury-route");
   await send(connection, governance, registerMseIx({
     governance: governance.publicKey,
-    entityHash: beneficiaryEntityHash,
+    entityHash: treasuryRouteEntityHash,
     walletOwner: platformTreasury.publicKey,
     usdcAta: issuerUsdcAta,
   }));
   check("settlement asset registered", Boolean(await connection.getAccountInfo(settlementAssetPda(settlementMint))));
-  check("MSE uses SQUADS_FIAT_FORWARD rail", Boolean(await connection.getAccountInfo(mseBeneficiaryPda(beneficiaryEntityHash))));
+  check(
+    "US issuer Squads treasury route is registered",
+    Boolean(await connection.getAccountInfo(mseBeneficiaryPda(treasuryRouteEntityHash))),
+  );
 
   console.log("\n2. Compliance authority and Token-2022 receipt profile");
   await send(connection, governance, initializeComplianceIx({
@@ -1458,7 +1480,7 @@ async function main() {
     governance: governance.publicKey,
     dealId,
     issuerEntityHash: fixtureHash("us-c-corporation"),
-    beneficiaryEntityHash,
+    treasuryRouteEntityHash,
     settlementMint,
     receiptMint: receiptMint.publicKey,
     subscriptionVault,
@@ -1579,18 +1601,23 @@ async function main() {
   check("receipt supply equals accepted principal", receiptSupply === subscriptionBalance);
 
   console.log("\n5. Subscription negative-path invariants");
-  await expectRejected("hard cap rejects an additional subscription", () =>
-    send(connection, investor1, subscribeIx({
-      investor: investor1.publicKey,
-      dealId,
-      investorId: investorId1,
-      receiptMint: receiptMint.publicKey,
-      investorUsdc: investor1Accounts.investorUsdc,
-      subscriptionVault,
-      receiptAta: investor1Accounts.receiptAta,
-      settlementMint,
-      nonce: 2,
-    })),
+  await expectRejected(
+    "hard cap rejects an additional subscription",
+    () => send(connection, investor1, subscribeIx({
+        investor: investor1.publicKey,
+        dealId,
+        investorId: investorId1,
+        receiptMint: receiptMint.publicKey,
+        investorUsdc: investor1Accounts.investorUsdc,
+        subscriptionVault,
+        receiptAta: investor1Accounts.receiptAta,
+        settlementMint,
+        nonce: 2,
+      })),
+    {
+      programId: VAULT,
+      customCode: 6_014,
+    },
   );
   check(
     "rejected subscription creates no receipt",
@@ -1622,6 +1649,23 @@ async function main() {
     }),
     [risk],
   );
+  await expectRejected(
+    "capital release is blocked until its configured delay elapses",
+    () => send(connection, governance, executeReleaseIx({
+      dealId,
+      index: 0,
+      subscriptionVault,
+      issuerUsdcAta,
+      settlementMint,
+      executor: governance.publicKey,
+    })),
+    {
+      programId: VAULT,
+      customCode: 6_020,
+    },
+  );
+  await new Promise((resolve) =>
+    setTimeout(resolve, (RELEASE_DELAY_SECONDS + 1) * 1_000));
   await send(connection, governance, executeReleaseIx({
     dealId,
     index: 0,
@@ -1749,6 +1793,8 @@ async function main() {
       }),
       [risk],
     );
+    await new Promise((resolve) =>
+      setTimeout(resolve, (RELEASE_DELAY_SECONDS + 1) * 1_000));
     await send(connection, governance, executeReleaseIx({
       dealId,
       index,
@@ -1774,6 +1820,10 @@ async function main() {
           }),
           [risk],
         ),
+        {
+          programId: VAULT,
+          customCode: 6_023,
+        },
       );
       check(
         `blocked milestone ${index + 1} leaves no treasury movement`,
@@ -1854,6 +1904,9 @@ async function main() {
         TOKEN_2022_PROGRAM_ID,
       ),
     ),
+    {
+      programId: TOKEN_2022_PROGRAM_ID,
+    },
   );
   const redeem1 = redeemIx({
     dealId,
@@ -1889,12 +1942,23 @@ async function main() {
   await sendV0(connection, investor1, redeem1, [redemptionLookupTable]);
   await sendV0(connection, investor2, redeem2, [redemptionLookupTable]);
 
-  const investor1Payout = (await getAccount(connection, investor1Accounts.investorUsdc)).amount;
-  const investor2Payout = (await getAccount(connection, investor2Accounts.investorUsdc)).amount;
+  await connection.confirmTransaction(latestSuccessfulSignature, "finalized");
+  check("the on-chain happy-path lifecycle is finalized before evidence reads", true);
+
+  const investor1Payout = (await getAccount(
+    connection,
+    investor1Accounts.investorUsdc,
+    "finalized",
+  )).amount;
+  const investor2Payout = (await getAccount(
+    connection,
+    investor2Accounts.investorUsdc,
+    "finalized",
+  )).amount;
   const finalReceiptSupply = (await getMint(
     connection,
     receiptMint.publicKey,
-    "confirmed",
+    "finalized",
     TOKEN_2022_PROGRAM_ID,
   )).supply;
   check("investor 1 redeems exactly 16.5 USDC", investor1Payout === 16_500_000n);
@@ -1902,7 +1966,7 @@ async function main() {
   check("governed redemption burns the complete receipt supply", finalReceiptSupply === 0n);
   check(
     "full repayment and redemption conserve every USDC base unit",
-    (await getAccount(connection, repaymentVault)).amount === 0n
+    (await getAccount(connection, repaymentVault, "finalized")).amount === 0n
       && investor1Payout + investor2Payout === 33n * USDC,
   );
 

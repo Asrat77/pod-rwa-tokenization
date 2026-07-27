@@ -55,15 +55,20 @@ Solana:
 - [`tracer.mjs`](../../rwa/tracer/rpc/tracer.mjs) proves protocol
   initialization, multiple registered payout destinations, governance-only
   registration, and suspension without destination mutation (17 assertions).
-- [`phase2.mjs`](../../rwa/tracer/rpc/phase2.mjs) proves the original V1
+- [`phase2.mjs`](../../rwa/tracer/rpc/phase2.mjs) proves the current
   `SQUADS_FIAT_FORWARD` route from two 15-USDC subscriptions through the
-  30/30/30/10 releases, preceding-wire reconciliation gates, 33-USDC reverse
-  repayment, settlement, permissioned burn, and two exact 16.5-USDC
-  redemptions (38 assertions).
+  30/30/30/10 releases, preceding-wire reconciliation gates, 33-USDC on-chain
+  repayment deposit, settlement, permissioned burn, and two exact 16.5-USDC
+  redemptions (40 assertions).
 
-This evidence directly exercises AC-01, AC-03, AC-04, AC-06 through AC-08,
-AC-11, AC-14, and the happy-path portion of AC-16. It does not mark the release
-complete. Failed-raise refunds, default, restricted claims, wallet recovery,
-counterfeit substitutions, both-farm replay, devnet deployment, migration, and
-indexer mismatch scenarios remain required by AC-09, AC-10, AC-12, AC-13, and
-AC-17 through AC-21.
+This evidence directly exercises the on-chain treasury-destination portion of
+AC-01, AC-03, the missing/unreconciled-predecessor portion of AC-04, the
+USDC-deposit and settlement portion of AC-06, AC-07, AC-08, the direct-burn
+portion of AC-11, AC-14, and the happy-path portion of AC-16. It does not prove
+AC-02 or mark the release complete. A distinct `FiatBeneficiary` account,
+reverse bank/conversion evidence, every intermediate/failed/returned wire
+state, direct-transfer rejection, failed-raise refunds, default, restricted
+claims, wallet recovery, counterfeit substitutions, gate correction, replay,
+wrong-deal/milestone, expiry and `FAIL` scenarios, both-farm replay, devnet
+deployment, migration, and indexer mismatch scenarios remain required by
+AC-02, AC-04, AC-06, AC-09 through AC-13, and AC-16 through AC-21.

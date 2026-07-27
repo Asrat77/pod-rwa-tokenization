@@ -1,0 +1,15 @@
+{
+  "name": "@pod/rwa-rpc-tracer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "phase1": "node tracer.mjs",
+    "phase2": "node phase2.mjs",
+    "check": "node --check tracer.mjs && node --check phase2.mjs"
+  },
+  "devDependencies": {
+    "@solana/spl-token": "0.4.15",
+    "@solana/web3.js": "1.98.4"
+  }
+}

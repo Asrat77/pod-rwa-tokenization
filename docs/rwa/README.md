@@ -19,6 +19,7 @@ transaction values—not the account model or workflow.
 - [Migration, upgrade, and authority-rotation runbook](MIGRATION_AND_UPGRADE_RUNBOOK.md)
 - [Issuer flowmap intake](FLOWMAP_INTAKE.md)
 - [Acceptance traceability](ACCEPTANCE_TRACEABILITY.md)
+- [Current review handoff](REVIEW_HANDOFF.md)
 
 ## Normative language
 
