@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "npm run build --workspace @pod/rwa-client",
+    "check:devnet": "node scripts/check-devnet-readiness.mjs",
     "test": "npm run test --workspace @pod/rwa-client",
     "typecheck": "npm run typecheck --workspace @pod/rwa-client"
   },

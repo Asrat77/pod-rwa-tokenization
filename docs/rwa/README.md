@@ -20,6 +20,7 @@ transaction values—not the account model or workflow.
 - [Issuer flowmap intake](FLOWMAP_INTAKE.md)
 - [Acceptance traceability](ACCEPTANCE_TRACEABILITY.md)
 - [Current review handoff](REVIEW_HANDOFF.md)
+- [Devnet structure review for 1 August 2026](DEVNET_STRUCTURE_REVIEW_2026-08-01.md)
 
 ## Normative language
 

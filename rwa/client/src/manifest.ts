@@ -62,7 +62,7 @@ const BASE58_VALUES = new Map(
 const KNOWN_GENESIS_HASHES: Readonly<
   Partial<Record<SolanaCluster, string>>
 > = {
-  devnet: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+  devnet: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
   "mainnet-beta": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
 };
 
