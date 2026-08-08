@@ -1,5 +1,14 @@
 # RWA V1 review handoff
 
+## Integration boundary
+
+The review branch is `feat/rwa-tokenization-v1`, based on
+`feat/pod-app-dev-workspace` at `c990386`. The repository's current `main`
+branch has unrelated Git history, so the review PR targets the actual parent
+branch. Integrating the parent Oracle workspace into `main` remains a separate
+repository decision; this PR does not hide that boundary or force an
+unrelated-history merge.
+
 ## Review scope
 
 The review baseline for this slice is commit
@@ -51,8 +60,8 @@ PDA.
 | Phase 2 lifecycle RPC tracer | 40 passed |
 | Rust workspace tests | 42 passed |
 | TypeScript client tests | 52 passed |
-| RWA indexer tests | 15 passed |
-| Infrastructure tests | 3 passed |
+| RWA indexer tests | 21 passed |
+| Infrastructure tests | 6 passed |
 | Client type-check and build | Passed |
 | Investor application production build | Passed |
 | Compliance and vault isolated SBF builds | No stack-limit violations |
@@ -89,3 +98,19 @@ wallet recovery, counterfeit substitutions, gate correction, replay,
 wrong-deal/milestone, expiry and `FAIL` scenarios, both-farm replay, clean
 devnet deployment, failure injection, migration, authority rotation, and
 indexer mismatch quarantine evidence.
+
+## External inputs still required
+
+The remaining local implementation and review work does not require shared
+credentials. Deployment requires inputs that are deliberately absent from the
+repository:
+
+- the intended AWS account, region, assumable role/profile, and CDK bootstrap;
+- Devnet upgrade/program authority key custody and funded deployer;
+- the issuer Squads treasury address and authority matrix;
+- a credentialed RPC endpoint stored in Secrets Manager; and
+- confirmed issuer/servicer, coupon, beneficiary-rail, and release-executor
+  decisions.
+
+No access key, private key, RPC credential, bank detail, or beneficiary secret
+belongs in this branch or its PR.

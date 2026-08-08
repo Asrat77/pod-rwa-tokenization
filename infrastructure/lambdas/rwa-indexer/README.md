@@ -16,7 +16,8 @@ The indexer fails closed before any write unless:
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
 | `TABLE_NAME` | yes | — | DynamoDB domain table |
-| `SOLANA_RPC_URL` | yes | — | HTTP(S) Solana JSON-RPC endpoint |
+| `SOLANA_RPC_URL` | alternative | — | HTTP(S) Solana JSON-RPC endpoint |
+| `SOLANA_RPC_SECRET_ARN` | alternative | — | Secrets Manager secret containing the raw URL or `{ "rpcUrl": "..." }` |
 | `RWA_PROGRAM_ID` | yes | — | Deployed `pod_vault` program |
 | `RWA_CLUSTER_GENESIS` | yes | — | Exact expected cluster genesis hash |
 | `RPC_TIMEOUT_MS` | no | `20000` | Timeout for each HTTP RPC request |
@@ -25,6 +26,10 @@ The indexer fails closed before any write unless:
 | `MAX_SIGNATURE_LOOKUPS` | no | `250` | Latest-signature enrichment budget |
 | `RPC_BATCH_SIZE` | no | `50` | JSON-RPC calls per signature page |
 | `DYNAMO_WRITE_PAGE_SIZE` | no | `10` | Concurrent conditional writes per page |
+
+Set exactly one RPC source. `SOLANA_RPC_SECRET_ARN` takes precedence and keeps
+provider credentials out of CDK context and CloudFormation. The Lambda role must
+have `secretsmanager:GetSecretValue` for that secret.
 
 Invoke with `{ "dryRun": true }` to perform all RPC validation, decoding, joins,
 wallet-binding reads, and mapping without writes. Add

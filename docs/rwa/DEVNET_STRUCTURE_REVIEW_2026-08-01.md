@@ -1,6 +1,7 @@
 # RWA V1 Devnet structure review
 
 Meeting date: 1 August 2026
+Public-network readiness rechecked: 8 August 2026 at Devnet slot `482072231`
 
 ## Status in one sentence
 
@@ -11,9 +12,9 @@ and the AWS staging account is not reachable through the current CLI profile.
 ## Evidence snapshot
 
 - The local RPC tracers recorded 17 registry assertions and 40 complete
-  lifecycle assertions. The broader recorded test package contains 169 passing
+  lifecycle assertions. The broader recorded test package contains 178 passing
   RPC, Rust, TypeScript, indexer, and infrastructure checks.
-- A 31 July Devnet `getMultipleAccounts` request returned `null` for all three
+- An 8 August Devnet readiness request returned no account for all three
   program addresses in `rwa/deployments/devnet.json`.
 - The readiness check also found that the configured Devnet genesis hash was
   truncated. The manifest, client validation, infrastructure default, and tests
@@ -25,9 +26,12 @@ and the AWS staging account is not reachable through the current CLI profile.
   account has neither `Turmi-dev-Foundation` nor `CDKToolkit` in `us-east-1`.
   Repository deployment records reference a different staging account and the
   `turmi-dev` profile.
-- The RWA indexer implementation exists under
-  `infrastructure/lambdas/rwa-indexer`, but the CDK stack does not create or
-  schedule the indexer Lambda.
+- The RWA indexer is now wired into the Foundation CDK stack with finalized
+  polling, single concurrency, DynamoDB mirror permissions, secret-backed RPC
+  configuration, and a disabled-by-default EventBridge schedule. It is not yet
+  deployed.
+- The Foundation CDK stack now defines a retained, versioned KMS-encrypted RWA
+  evidence bucket for full bank, provider, UETR, and identity artifacts.
 
 Run the current network check with:
 
@@ -79,7 +83,8 @@ npm run check:devnet
 ## Staging sequence after those decisions
 
 1. Obtain the correct AWS account role/profile and verify `CDKToolkit`.
-2. Deploy the Foundation AppSync/Cognito/RWA API stack and wire the indexer.
+2. Deploy the Foundation AppSync/Cognito/RWA API stack and its disabled RWA
+   indexer; verify a dry run before enabling the schedule.
 3. Create the four authority classes and issuer Squads treasury.
 4. Build each SBF program separately, deploy all three to Devnet, verify them,
    and sign the completed manifest.
