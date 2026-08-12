@@ -10,8 +10,6 @@ import {
   markDisbursementUsdcReleased,
   markFiatDisbursementFailed,
   markFiatDisbursementReturned,
-  recordDisbursementConversion,
-  reconcileFiatDisbursement,
   type FiatDisbursementV1,
 } from "../src/index.js";
 import {
@@ -132,7 +130,7 @@ describe("fiat disbursement state machine", () => {
         amountBaseUnits: "9000000",
         recordedAt: "2026-07-23T18:03:00.000Z",
       }),
-    ).toThrow(/MSE destination ATA/);
+    ).toThrow(/US issuer treasury ATA/);
     expect(() =>
       markDisbursementUsdcReleased(approvedDisbursement(), {
         transactionSignature: "release-signature-1",
@@ -195,48 +193,10 @@ describe("fiat disbursement state machine", () => {
     expect(() => assertDisbursementAllowsNextRelease(reconciled)).not.toThrow();
   });
 
-  it("reconciles a direct-USDC MSE movement straight from release and blocks the fiat stages", () => {
-    const approvedFirst = approveFiatDisbursement(directProposedDisbursement(), {
-      role: "RISK",
-      approvedBy: "risk-1",
-      approvedAt: "2026-07-23T18:01:00.000Z",
-    });
-    const approved = approveFiatDisbursement(approvedFirst, {
-      role: "TREASURY",
-      approvedBy: "treasury-1",
-      approvedAt: "2026-07-23T18:02:00.000Z",
-    });
-    const released = markDisbursementUsdcReleased(approved, {
-      transactionSignature: "direct-release-signature",
-      finalizedSlot: "223456789",
-      sourceTokenAccount: SUBSCRIPTION_VAULT,
-      destinationTokenAccount: ISSUER_ATA,
-      amountBaseUnits: "9000000",
-      recordedAt: "2026-07-23T18:03:00.000Z",
-    });
-    expect(released.status).toBe("USDC_RELEASED");
-
-    expect(() =>
-      recordDisbursementConversion(released, {
-        providerReferenceCommitment: commitment("provider"),
-        grossUsdMinorUnits: "900",
-        providerFeesUsdMinorUnits: "0",
-        netUsdMinorUnits: "900",
-        rateUsdMinorUnitsNumerator: "900",
-        rateUsdcBaseUnitsDenominator: "9000000",
-        evidenceCommitment: commitment("conversion"),
-        recordedBy: "treasury-operator",
-        recordedAt: "2026-07-23T18:04:00.000Z",
-      }),
-    ).toThrow(/Squads fiat-forward rail/);
-
-    const reconciled = reconcileFiatDisbursement(released, {
-      evidenceCommitment: commitment("direct-reconciliation"),
-      reconciledBy: "reconciliation-operator",
-      reconciledAt: "2026-07-23T18:05:00.000Z",
-    });
-    expect(reconciled.status).toBe("RECONCILED");
-    expect(() => assertDisbursementAllowsNextRelease(reconciled)).not.toThrow();
+  it("reserves direct USDC for a later version instead of enabling it in V1", () => {
+    expect(() => directProposedDisbursement()).toThrow(
+      /V1 supports only.*Squads fiat-forward/,
+    );
   });
 
   it("requires explicit fee conservation at conversion and SWIFT stages", async () => {

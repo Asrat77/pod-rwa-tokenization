@@ -186,7 +186,7 @@ async function main() {
   );
   check("protocol config created", Boolean(await connection.getAccountInfo(protocolConfigPda())));
 
-  console.log("\n2. Registry holds multiple MSEs across both rails");
+  console.log("\n2. V1 registry accepts the issuer Squads rail and rejects direct USDC");
   const platformHash = Buffer.alloc(32, 1);
   const platformWallet = Keypair.generate().publicKey;
   const platformAta = Keypair.generate().publicKey;
@@ -205,36 +205,40 @@ async function main() {
   const thirdPartyHash = Buffer.alloc(32, 2);
   const thirdPartyWallet = Keypair.generate().publicKey;
   const thirdPartyAta = Keypair.generate().publicKey;
-  await send(
-    connection,
-    governance,
-    registerMseIx({
-      signer: governance.publicKey,
-      entityHash: thirdPartyHash,
-      walletOwner: thirdPartyWallet,
-      usdcAta: thirdPartyAta,
-      railKind: RAIL_DIRECT_USDC,
-    }),
-  );
+  let directRailRejected = false;
+  try {
+    await send(
+      connection,
+      governance,
+      registerMseIx({
+        signer: governance.publicKey,
+        entityHash: thirdPartyHash,
+        walletOwner: thirdPartyWallet,
+        usdcAta: thirdPartyAta,
+        railKind: RAIL_DIRECT_USDC,
+      }),
+    );
+  } catch {
+    directRailRejected = true;
+  }
 
   const platform = decodeMseBeneficiary(
     (await connection.getAccountInfo(mseBeneficiaryPda(platformHash))).data,
   );
-  const thirdParty = decodeMseBeneficiary(
-    (await connection.getAccountInfo(mseBeneficiaryPda(thirdPartyHash))).data,
-  );
-
-  check("platform MSE wallet round-trips", platform.walletOwner === platformWallet.toBase58());
-  check("platform MSE ATA round-trips", platform.usdcAta === platformAta.toBase58());
-  check("platform MSE rail is SQUADS_FIAT_FORWARD", platform.railKind === RAIL_SQUADS_FIAT_FORWARD);
-  check("platform MSE is ACTIVE on registration", platform.status === STATUS_ACTIVE);
-  check("third-party MSE wallet round-trips", thirdParty.walletOwner === thirdPartyWallet.toBase58());
-  check("third-party MSE rail is DIRECT_USDC", thirdParty.railKind === RAIL_DIRECT_USDC);
+  check("US issuer treasury wallet round-trips", platform.walletOwner === platformWallet.toBase58());
+  check("US issuer treasury ATA round-trips", platform.usdcAta === platformAta.toBase58());
+  check("US issuer treasury rail is SQUADS_FIAT_FORWARD", platform.railKind === RAIL_SQUADS_FIAT_FORWARD);
+  check("US issuer treasury route is ACTIVE on registration", platform.status === STATUS_ACTIVE);
+  check("DIRECT_USDC is rejected by the V1 registry", directRailRejected);
   check(
-    "both MSEs coexist at distinct PDAs",
+    "no beneficiary account survives the rejected direct rail",
+    (await connection.getAccountInfo(mseBeneficiaryPda(thirdPartyHash))) === null,
+  );
+  check(
+    "reserved direct-rail PDA remains distinct",
     mseBeneficiaryPda(platformHash).toBase58() !== mseBeneficiaryPda(thirdPartyHash).toBase58(),
   );
-  check("schema version is V1", platform.schemaVersion === 1 && thirdParty.schemaVersion === 1);
+  check("schema version is V1", platform.schemaVersion === 1);
 
   console.log("\n3. Only governance may register a payout destination");
   const impostor = Keypair.generate();
@@ -250,7 +254,7 @@ async function main() {
         entityHash: impostorHash,
         walletOwner: Keypair.generate().publicKey,
         usdcAta: Keypair.generate().publicKey,
-        railKind: RAIL_DIRECT_USDC,
+        railKind: RAIL_SQUADS_FIAT_FORWARD,
       }),
     );
   } catch {

@@ -225,10 +225,12 @@ function InvestorApp() {
   const eligible = workspace.eligibility?.status === "ACTIVE";
   const walletMatches = Boolean(wallet && wallet === workspace.eligibility?.wallet);
   const chainReady = Boolean(deal?.chain?.programId && deal?.dealIdHash && deal?.receiptMint);
+  const v1RailReady = !deal?.mseRailKind || deal.mseRailKind === "SQUADS_FIAT_FORWARD";
   const canReview = deal?.state === "SUBSCRIPTION_OPEN"
     && eligible
     && walletMatches
-    && chainReady;
+    && chainReady
+    && v1RailReady;
 
   return (
     <div className="app-shell">
@@ -293,6 +295,9 @@ function InvestorApp() {
                   Connect AppSync and a deployed deal to enable signed subscriptions.
                 </div>
               ) : null}
+              {!v1RailReady ? (
+                <div className="notice error"><X size={16} />This deal uses a reserved non-V1 treasury rail. Subscription is disabled.</div>
+              ) : null}
               {error ? <div className="notice error"><X size={16} />{error}</div> : null}
               {notice ? <div className="notice success"><Check size={16} />{notice}</div> : null}
               {lastSignature ? (
@@ -355,23 +360,15 @@ function InvestorApp() {
                       <Record icon={<Landmark />} label="Issuer" value="US C-Corporation" note={`Commitment ${short(deal.issuerEntityHash)}`} />
                       <Record
                         icon={<ArrowUpRight />}
-                        label="MSE beneficiary"
-                        value={deal.mseRailKind === "DIRECT_USDC" ? "Third-party MSE (direct USDC)" : "Platform MSE (Squads → SWIFT)"}
+                        label="Fiat beneficiary"
+                        value="International MSE (USD via SWIFT)"
                         note={`Entity ${short(deal.beneficiaryEntityHash)}`}
                       />
                       <Record icon={<CircleDollarSign />} label="Settlement asset" value="Circle USDC" note={`6 decimals · ${short(deal.settlementMint)}`} />
                       <Record icon={<FileCheck2 />} label="Legal documents" value="Locked at opening" note={`Bundle ${short(deal.documentBundleHash)}`} />
                     </div>
                     <div className="flow-line">
-                      {deal.mseRailKind === "DIRECT_USDC" ? (
-                        <>
-                          <span>INVESTOR</span><i /> <span>DEAL VAULT</span><i /> <span>MSE WALLET (USDC)</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>INVESTOR</span><i /> <span>DEAL VAULT</span><i /> <span>PLATFORM MSE (SQUADS)</span><i /> <span>USD / SWIFT</span><i /> <span>BENEFICIARY</span>
-                        </>
-                      )}
+                      <span>INVESTOR</span><i /> <span>DEAL VAULT</span><i /> <span>US ISSUER (SQUADS)</span><i /> <span>USD / SWIFT</span><i /> <span>MSE</span>
                     </div>
                   </section>
                 </div>
@@ -438,7 +435,7 @@ function InvestorApp() {
         </main>
       </div>
 
-      {reviewOpen && deal && workspace.eligibility ? (
+      {reviewOpen && deal && workspace.eligibility && v1RailReady ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setReviewOpen(false)}>
           <section className="review-modal" role="dialog" aria-modal="true" aria-labelledby="review-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" onClick={() => setReviewOpen(false)} aria-label="Close"><X /></button>

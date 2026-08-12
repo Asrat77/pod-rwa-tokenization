@@ -27,6 +27,7 @@ export interface ChainReference {
   lastReconciledAt: string;
 }
 
+// DIRECT_USDC is retained for decoder compatibility but is not enabled by V1.
 export type RwaMseRailKind = "SQUADS_FIAT_FORWARD" | "DIRECT_USDC";
 
 export interface RwaDeal {

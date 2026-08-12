@@ -116,6 +116,23 @@ describe("deal domain validation", () => {
     ).toThrow(/issuer must own/);
   });
 
+  it("reserves direct USDC for a later version instead of enabling it in V1", () => {
+    const deal = validDeal();
+    expect(() =>
+      validateDealV1({
+        ...deal,
+        fiatBeneficiary: undefined,
+        fiatRouteCommitment: undefined,
+        mseDestination: {
+          kind: "DIRECT_USDC",
+          entityReference: "international-beneficiary-006",
+          walletOwner: OTHER_WALLET,
+          usdcAta: PROGRAM_ID,
+        },
+      }),
+    ).toThrow(/V1 supports only.*Squads fiat-forward/);
+  });
+
   it("rejects an inverted deal timeline or invalid funding caps", () => {
     const deal = validDeal();
     expect(() =>

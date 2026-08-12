@@ -78,4 +78,6 @@ pub enum VaultError {
     IssuerDistributionAlreadyWithdrawn,
     #[msg("The MSE beneficiary is not active in the registry")]
     InactiveMseBeneficiary,
+    #[msg("RWA V1 supports only the US issuer Squads fiat-forward treasury rail")]
+    UnsupportedMseRail,
 }

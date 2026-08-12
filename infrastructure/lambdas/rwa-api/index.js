@@ -100,6 +100,13 @@ function assertMovementShape(movement) {
   return movement;
 }
 
+function assertV1RailKind(railKind) {
+  if (railKind !== 'SQUADS_FIAT_FORWARD') {
+    throw new Error('RWA V1 supports only the US issuer Squads fiat-forward treasury rail');
+  }
+  return railKind;
+}
+
 function decodeBase58(value) {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   let decoded = 0n;
@@ -379,13 +386,10 @@ async function createFiatDisbursement(event, auth) {
     throw new Error('Beneficiary does not match the immutable deal terms');
   }
   const railKind = deal.mseRailKind || 'SQUADS_FIAT_FORWARD';
-  // The SWIFT/bank route is only meaningful for the Squads fiat-forward rail; a
-  // direct-USDC MSE has no off-chain bank leg to validate against.
-  if (railKind === 'SQUADS_FIAT_FORWARD') {
-    const bankRouteHash = assertHash('bankRouteHash', input.bankRouteHash);
-    if (deal.bankRouteHash !== bankRouteHash) {
-      throw new Error('Bank route does not match the immutable approved route');
-    }
+  assertV1RailKind(railKind);
+  const bankRouteHash = assertHash('bankRouteHash', input.bankRouteHash);
+  if (deal.bankRouteHash !== bankRouteHash) {
+    throw new Error('Bank route does not match the immutable approved route');
   }
   const milestones = await queryIndex(
     'GSI1',
@@ -481,6 +485,7 @@ async function requireMovement(id) {
   assertText('movementId', id, 128);
   const movement = await getItem(movementKey(id));
   if (!movement) throw new Error('Treasury movement was not found');
+  assertV1RailKind(movement.railKind || 'SQUADS_FIAT_FORWARD');
   return movement;
 }
 
@@ -625,13 +630,17 @@ async function reconcileTreasuryMovement(event, auth) {
 async function recordFiatRepayment(event, auth) {
   requireRole(auth, ['TREASURY', 'OPERATIONS', 'ADMIN', 'SUPER_ADMIN']);
   const input = event.arguments.input;
+  const dealId = assertText('dealId', input.dealId, 128);
+  const deal = await getItem({ PK: `RWA#DEAL#${dealId}`, SK: 'META' });
+  if (!deal) throw new Error('The indexed on-chain deal was not found');
+  assertV1RailKind(deal.mseRailKind || 'SQUADS_FIAT_FORWARD');
   const id = crypto.randomUUID();
   const updatedAt = nowIso();
   const item = {
     ...repaymentKey(id),
     entityType: 'RWA_FIAT_REPAYMENT',
     id,
-    dealId: assertText('dealId', input.dealId, 128),
+    dealId,
     payerType: assertText('payerType', input.payerType, 64),
     fiatBankEvidenceHash: assertHash('fiatBankEvidenceHash', input.fiatBankEvidenceHash),
     grossUsdMinor: assertAmount('grossUsdMinor', input.grossUsdMinor),
@@ -643,7 +652,7 @@ async function recordFiatRepayment(event, auth) {
     status: 'FIAT_AND_CONVERSION_RECORDED',
     updatedAt,
     createdBy: actorRef(auth.subject),
-    GSI1PK: `RWA#DEAL#${input.dealId}#REPAYMENT`,
+    GSI1PK: `RWA#DEAL#${dealId}#REPAYMENT`,
     GSI1SK: `${updatedAt}#${id}`,
   };
   if (item.grossUsdMinor === '0' || item.netUsdcBaseUnits === '0') {

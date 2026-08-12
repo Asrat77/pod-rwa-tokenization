@@ -8,16 +8,14 @@ platform enforces workflow state, dual approval, evidence commitments, and
 reconciliation. A future provider API implements the same adapter and state
 machine.
 
-This runbook covers **two rails**, selected by the deal's MSE beneficiary
-`rail_kind`. The common preflight, dual approval, and tranche gate (§2 onward)
-apply to both; the evidence stages differ.
+This runbook covers the only active V1 rail,
+`SQUADS_FIAT_FORWARD`. `DIRECT_USDC` is a reserved future discriminant and is
+rejected by V1 program, API, and client boundaries.
 
-### Squads fiat-forward rail (`SQUADS_FIAT_FORWARD`)
+Released USDC is custodied in the US issuer's Squads treasury and forwarded to
+the international MSE as USD over SWIFT. Full evidence chain:
 
-The platform's own MSE. Released USDC is custodied in a US Squads treasury and
-forwarded to the international beneficiary as USD over SWIFT. Full evidence chain:
-
-- `USDC_RELEASED` proves USDC arrived at the platform MSE Squads treasury ATA.
+- `USDC_RELEASED` proves USDC arrived at the US issuer Squads treasury ATA.
 - `CONVERTED` proves the recorded conversion and explicit fee breakdown.
 - `SWIFT_SENT` proves the payment instruction was accepted for transmission.
 - `BANK_CONFIRMED` proves an independent reviewer matched the beneficiary,
@@ -25,17 +23,6 @@ forwarded to the international beneficiary as USD over SWIFT. Full evidence chai
 - `RECONCILED` proves the complete release-to-beneficiary accounting tie-out.
 
 No operator may infer a beneficiary payment from an on-chain release alone.
-
-### Direct-USDC rail (`DIRECT_USDC`)
-
-A third-party MSE receives USDC directly into its registered wallet on release.
-There is no conversion or SWIFT leg, so the `CONVERTED`, `SWIFT_SENT`, and
-`BANK_CONFIRMED` stages are rejected. Shortened chain:
-
-- `USDC_RELEASED` proves USDC arrived at the third-party MSE wallet ATA — and is
-  itself the delivery of value.
-- `RECONCILED` proves the finalized on-chain transfer matches the scheduled
-  amount and destination; no bank confirmation is required or possible.
 
 ## 2. Data handling
 
@@ -117,10 +104,9 @@ If any check fails, do not create or approve the release.
    time.
 4. **Release — `USDC_RELEASED`.** After the delay, submit `execute_release`.
    Wait for finalized commitment. Verify source subscription vault,
-   destination MSE beneficiary ATA, mint, token program, decimals, amount,
-   signature, and finalized slot. Attach that proof to the movement. On the
-   direct-USDC rail this is the delivery of value; proceed straight to step 8
-   (reconcile). Steps 5–7 apply only to the Squads fiat-forward rail.
+   destination US issuer treasury ATA, mint, token program, decimals, amount,
+   signature, and finalized slot. Attach that proof to the movement. This does
+   not prove that the international MSE received funding.
 5. **Convert — `CONVERTED`.** Treasury converts the released USDC to the issuer
    bank account through the approved provider. Upload the receipt. Record:
    `gross USD = net USD + provider fees` at the conversion leg, plus the
@@ -141,8 +127,6 @@ If any check fails, do not create or approve the release.
 
 For each movement:
 
-On the Squads fiat-forward rail:
-
 ```text
 released USDC = provider USDC input
 conversion gross USD = conversion net USD + provider fees
@@ -151,14 +135,6 @@ SWIFT gross USD = beneficiary net USD + bank fees
 movement destination ATA = locked MSE beneficiary ATA
 movement beneficiary hash = locked MSE beneficiary hash
 movement bank-route hash = locked approved route hash
-```
-
-On the direct-USDC rail there is no conversion or SWIFT leg; reconciliation
-proves only:
-
-```text
-movement destination ATA = locked MSE beneficiary ATA
-finalized transfer amount = scheduled milestone amount
 ```
 
 Any other FX spread or intermediary deduction is an explicit named fee field or

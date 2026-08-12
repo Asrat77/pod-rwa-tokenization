@@ -215,7 +215,7 @@ impl Harness {
 }
 
 #[tokio::test]
-async fn registry_holds_many_mses_across_both_rails() {
+async fn v1_registry_accepts_squads_and_rejects_direct_usdc() {
     let mut h = start().await;
     h.initialize_protocol().await;
 
@@ -231,9 +231,12 @@ async fn registry_holds_many_mses_across_both_rails() {
         MseRailKind::SquadsFiatForward,
     );
     let governance = h.governance.insecure_clone();
-    h.send(ix, &[&governance]).await.expect("platform MSE registers");
+    h.send(ix, &[&governance])
+        .await
+        .expect("US issuer treasury route registers");
 
-    // A third-party MSE: paid USDC directly, no fiat leg.
+    // The future direct-USDC discriminant remains serializable but is not an
+    // enabled V1 route.
     let third_party_hash = [2u8; 32];
     let third_party_wallet = Pubkey::new_unique();
     let third_party_ata = Pubkey::new_unique();
@@ -244,20 +247,19 @@ async fn registry_holds_many_mses_across_both_rails() {
         third_party_ata,
         MseRailKind::DirectUsdc,
     );
-    h.send(ix, &[&governance]).await.expect("third-party MSE registers");
+    let result = h.send(ix, &[&governance]).await;
+    assert!(result.is_err(), "V1 must reject direct-USDC registration");
 
-    // Both live simultaneously at distinct PDAs — this is the "multiple MSE wallets"
-    // requirement, and the derivation is what keeps them from colliding.
     let platform = h.read_beneficiary(&platform_hash).await;
     assert_eq!(platform.wallet_owner, platform_wallet);
     assert_eq!(platform.usdc_ata, platform_ata);
     assert_eq!(platform.rail_kind, MseRailKind::SquadsFiatForward);
     assert_eq!(platform.status, MseBeneficiaryStatus::Active);
 
-    let third_party = h.read_beneficiary(&third_party_hash).await;
-    assert_eq!(third_party.wallet_owner, third_party_wallet);
-    assert_eq!(third_party.rail_kind, MseRailKind::DirectUsdc);
-    assert_eq!(third_party.status, MseBeneficiaryStatus::Active);
+    assert!(
+        !h.account_exists(mse_beneficiary_pda(&third_party_hash)).await,
+        "rejected direct-USDC registration must not leave an account"
+    );
     assert_ne!(
         mse_beneficiary_pda(&platform_hash),
         mse_beneficiary_pda(&third_party_hash)
@@ -278,7 +280,7 @@ async fn only_governance_may_register_an_mse() {
         entity_hash,
         Pubkey::new_unique(),
         Pubkey::new_unique(),
-        MseRailKind::DirectUsdc,
+        MseRailKind::SquadsFiatForward,
     );
     let result = h.send(ix, &[&impostor]).await;
     assert!(

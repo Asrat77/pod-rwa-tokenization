@@ -6,13 +6,14 @@ Public-network readiness rechecked: 8 August 2026 at Devnet slot `482072231`
 ## Status in one sentence
 
 The V1 issuer lifecycle is proven against compiled programs on a local
-validator, but the protocol is not yet deployed or configured on Solana Devnet
-and the AWS staging account is not reachable through the current CLI profile.
+validator, but the protocol is not yet deployed or configured on Solana Devnet.
+The AWS staging account and Foundation stack are reachable, but the supplied
+IAM user cannot yet run a CDK diff or deployment.
 
 ## Evidence snapshot
 
 - The local RPC tracers recorded 17 registry assertions and 40 complete
-  lifecycle assertions. The broader recorded test package contains 178 passing
+  lifecycle assertions. The broader recorded test package contains 179 passing
   RPC, Rust, TypeScript, indexer, and infrastructure checks.
 - An 8 August Devnet readiness request returned no account for all three
   program addresses in `rwa/deployments/devnet.json`.
@@ -22,10 +23,11 @@ and the AWS staging account is not reachable through the current CLI profile.
 - The Devnet manifest has no protocol-governance, issuer-treasury, risk, or
   guardian authority, and has no source commit, binary/IDL hashes, signer, or
   signature.
-- The current `pod` AWS CLI profile resolves to account `412906648469`. That
-  account has neither `Turmi-dev-Foundation` nor `CDKToolkit` in `us-east-1`.
-  Repository deployment records reference a different staging account and the
-  `turmi-dev` profile.
+- A 12 August read-only check reached account `132511547673` in `us-east-1`,
+  found `CDKToolkit` healthy and `Turmi-dev-Foundation` in `UPDATE_COMPLETE`,
+  but `cdk diff --no-change-set` was denied. The IAM user lacks
+  `sts:AssumeRole` for `cdk-hnb659fds-lookup-role-132511547673-us-east-1` and
+  `cloudformation:GetTemplate` on the Foundation stack. No AWS resource changed.
 - The RWA indexer is now wired into the Foundation CDK stack with finalized
   polling, single concurrency, DynamoDB mirror permissions, secret-backed RPC
   configuration, and a disabled-by-default EventBridge schedule. It is not yet
@@ -75,14 +77,17 @@ npm run check:devnet
    the satellite path is staged?
 4. **Release automation:** operations-triggered execution or an AWS keeper
    submitting the permissionless transaction?
-5. **Rail:** stage only `SQUADS_FIAT_FORWARD`, or keep the implemented
-   `DIRECT_USDC` rail available?
-6. **AWS target:** which account/profile should host `Turmi-dev-Foundation` and
-   its CDK bootstrap roles?
+5. **Rail — resolved:** V1 stages only `SQUADS_FIAT_FORWARD`. `DIRECT_USDC`
+   remains a reserved discriminant and is rejected at V1 write boundaries.
+6. **AWS target — partially resolved:** account `132511547673`, region
+   `us-east-1`, and the existing Foundation stack are identified. A replacement
+   profile/role still needs CDK bootstrap-role assumption and stack-template
+   read access before preview or deployment.
 
 ## Staging sequence after those decisions
 
-1. Obtain the correct AWS account role/profile and verify `CDKToolkit`.
+1. Obtain a rotated AWS profile/role that can assume the CDK bootstrap roles
+   and read the existing stack template, then rerun the no-change-set diff.
 2. Deploy the Foundation AppSync/Cognito/RWA API stack and its disabled RWA
    indexer; verify a dry run before enabling the schedule.
 3. Create the four authority classes and issuer Squads treasury.

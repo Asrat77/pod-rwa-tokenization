@@ -2,44 +2,43 @@
 
 ## 1. Operating model
 
-The US C-Corporation issues every offering. Each deal locks exactly one **MSE
-beneficiary** as its release destination, drawn from a governance-registered
-registry, and the beneficiary's `rail_kind` decides how released USDC reaches it:
+The US C-Corporation issues every offering and is the only on-chain treasury
+recipient. Each deal locks its exact Squads treasury owner and USDC ATA plus a
+separate opaque international MSE fiat-beneficiary commitment.
 
 | Role | V1 assignment | What it does |
 |---|---|---|
 | `Issuer` | US C-Corporation | Creates the legal offering and issues the receipt instrument. |
-| `PlatformTreasury` | US C-Corporation authority (`platform_treasury_authority`) | Proposes releases and, on the Squads rail, runs the off-chain USD conversion and SWIFT forward. |
+| `PlatformTreasury` | US C-Corporation authority (`platform_treasury_authority`) | Proposes releases and runs the off-chain USD conversion and SWIFT forward. |
 | `Servicer` | US C-Corporation | Reconciles movements, repayment, and investor servicing. |
-| `MSE beneficiary` | Platform's own MSE **or** a third-party MSE | The deal's release destination. See the two rails below. |
+| `FiatBeneficiary` | International MSE | Receives USD through its approved bank route; never receives stablecoins in V1. |
 
-Two rails, selected per MSE at registration:
+V1 activates one treasury rail:
 
-- **`SQUADS_FIAT_FORWARD`** — the platform's own MSE. Released USDC lands in a
-  US-controlled Squads treasury vault; the platform converts to USD and forwards
-  it over SWIFT to the international beneficiary. This rail runs the full
+- **`SQUADS_FIAT_FORWARD`** — released USDC lands in the US issuer's controlled
+  Squads treasury vault; the issuer converts it to USD and forwards it over
+  SWIFT to the international beneficiary. This rail runs the full
   conversion → SWIFT → bank-confirmation → reconciliation evidence chain.
-- **`DIRECT_USDC`** — a third-party MSE. Released USDC is transferred straight
-  from the deal's subscription vault to the MSE's registered wallet when the
-  oracle approves. There is no conversion or SWIFT leg; the finalized on-chain
-  transfer is itself the reconciliation evidence.
 
-The release proposer (`platform_treasury_authority`) is decoupled from the
-destination, so a third-party MSE is a passive recipient and never signs releases.
-`beneficiary_entity_hash` is the opaque reference to the deal's MSE beneficiary;
+The `DIRECT_USDC` discriminant remains reserved in versioned enums and decoders
+so a separately approved future schema can activate it without renumbering
+serialized data. V1 beneficiary registration, deal creation, API mutations,
+and client validation reject it.
+
+`beneficiary_entity_hash` is the opaque reference to the international MSE;
 `issuer_entity_hash`, `mse_wallet_owner`, `mse_usdc_ata`, and
-`servicer_entity_hash` identify the remaining roles.
+`servicer_entity_hash` keep the legal and treasury roles distinct. The schema
+name `MseBeneficiary` is retained for compatibility, but its V1 token accounts
+always identify the US issuer treasury route, not an MSE wallet.
 
 ```mermaid
 flowchart LR
     I["Investor wallets"] --> S["Deal USDC subscription vault"]
     S --> G["Oracle gate plus risk approval"]
-    G -->|Squads fiat-forward rail| T["Platform MSE Squads treasury"]
+    G --> T["US issuer Squads treasury"]
     T --> C["USDC-to-USD provider"]
     C --> B["US bank account"]
     B -->|SWIFT| F["International FiatBeneficiary bank account"]
-    G -->|Direct-USDC rail| D["Third-party MSE wallet (USDC)"]
-
     F -->|Repayment or proceeds| B
     B --> C
     C --> T
@@ -47,10 +46,9 @@ flowchart LR
     R --> I
 ```
 
-On the Squads rail, an on-chain release proves receipt by the platform MSE
-treasury only — conversion and beneficiary receipt require the treasury-movement
-evidence chain in [the rail runbook](TREASURY_RAIL_RUNBOOK.md). On the direct rail,
-the on-chain release is receipt by the MSE.
+An on-chain release proves receipt by the US issuer treasury only. Conversion
+and MSE receipt require the treasury-movement evidence chain in
+[the rail runbook](TREASURY_RAIL_RUNBOOK.md).
 
 ## 2. System boundaries
 
@@ -209,15 +207,13 @@ deal, milestone, gate kind, asset set, policy, revision number, revision hash,
 content hash, `PASS` decision, and expiry. The revision must also be the latest
 revision in its canonical `DealGateHead`. A distinct risk signer schedules the
 release, a configured delay elapses, and the transfer destination remains the
-deal's terms-locked MSE beneficiary ATA. The oracle publisher has no vault
+deal's terms-locked US issuer treasury ATA. The oracle publisher has no vault
 withdrawal authority.
 
 Except for the capital-close advance, milestone `n` cannot be scheduled unless
-movement `n-1` is `RECONCILED`. What `RECONCILED` requires depends on the rail:
-the Squads fiat-forward rail must clear independent `BANK_CONFIRMED` evidence
-first, while a direct-USDC movement reconciles from `USDC_RELEASED` against the
-finalized on-chain transfer. A `FAILED`, `RETURNED`, or merely released but
-unreconciled movement blocks the next tranche on either rail.
+movement `n-1` is `RECONCILED`. Reconciliation requires independent
+`BANK_CONFIRMED` evidence first. A `FAILED`, `RETURNED`, or merely released but
+unreconciled movement blocks the next tranche.
 
 ## 5. Lifecycle and accounting
 
@@ -296,10 +292,9 @@ gate-correction, restricted-claim, recovery, and default scenarios.
 
 ## 7. Core invariants
 
-1. The issuer and the deal's MSE beneficiary are distinct legal references.
-2. Stablecoin release destination equals the deal's terms-locked MSE beneficiary
-   ATA (a Squads vault for the platform MSE, or a registered wallet for a
-   third-party MSE), sourced from an active registry entry at deal creation.
+1. The US issuer and the deal's international fiat beneficiary are distinct legal references.
+2. Stablecoin release destination equals the deal's terms-locked US issuer
+   Squads treasury ATA, sourced from an active registry entry at deal creation.
 3. Receipt issued supply equals accepted principal less completed refunds.
 4. Vault balance changes occur only through checked token transfers.
 5. Each release has exactly one deal-and-milestone treasury movement.

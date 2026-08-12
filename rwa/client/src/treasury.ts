@@ -100,7 +100,7 @@ export interface FiatDisbursementV1 {
   readonly railKind: MseRailKindV1;
   readonly issuerEntityReference: EntityReference;
   readonly mseBeneficiaryEntityReference: EntityReference;
-  /** Present only on the Squads fiat-forward rail; a direct-USDC MSE has no bank leg. */
+  /** Required in V1 for the international MSE's approved bank route. */
   readonly beneficiaryBankRouteCommitment?: ContentCommitment;
   readonly mseUsdcAta: string;
   readonly releasedUsdcBaseUnits: BaseUnitString;
@@ -273,10 +273,9 @@ export function createFiatDisbursement(
     "milestoneIndex must be a non-negative integer",
   );
   invariant(
-    input.railKind === "SQUADS_FIAT_FORWARD" ||
-      input.railKind === "DIRECT_USDC",
-    "INVALID_ARGUMENT",
-    "railKind must be SQUADS_FIAT_FORWARD or DIRECT_USDC",
+    input.railKind === "SQUADS_FIAT_FORWARD",
+    "INVALID_PARTY_CONFIGURATION",
+    "RWA V1 supports only the US issuer Squads fiat-forward treasury rail",
   );
   requiredIdentifier(
     input.issuerEntityReference,
@@ -292,23 +291,15 @@ export function createFiatDisbursement(
     "INVALID_PARTY_CONFIGURATION",
     "the US issuer and the MSE beneficiary must be distinct legal entities",
   );
-  if (input.railKind === "SQUADS_FIAT_FORWARD") {
-    invariant(
-      input.beneficiaryBankRouteCommitment !== undefined,
-      "INVALID_ARGUMENT",
-      "the Squads fiat-forward rail requires a beneficiary bank route commitment",
-    );
-    validateContentCommitment(
-      input.beneficiaryBankRouteCommitment,
-      "beneficiaryBankRouteCommitment",
-    );
-  } else {
-    invariant(
-      input.beneficiaryBankRouteCommitment === undefined,
-      "INVALID_ARGUMENT",
-      "a direct-USDC MSE disbursement has no bank route",
-    );
-  }
+  invariant(
+    input.beneficiaryBankRouteCommitment !== undefined,
+    "INVALID_ARGUMENT",
+    "the Squads fiat-forward rail requires a beneficiary bank route commitment",
+  );
+  validateContentCommitment(
+    input.beneficiaryBankRouteCommitment,
+    "beneficiaryBankRouteCommitment",
+  );
   validateSolanaPublicKey(input.mseUsdcAta, "mseUsdcAta");
   const amount = baseUnits(
     input.releasedUsdcBaseUnits,
@@ -412,7 +403,7 @@ export function markDisbursementUsdcReleased(
   invariant(
     command.destinationTokenAccount === disbursement.mseUsdcAta,
     "INVALID_PARTY_CONFIGURATION",
-    "USDC must be released to the deal's locked MSE destination ATA",
+    "USDC must be released to the deal's locked US issuer treasury ATA",
   );
   const amount = baseUnits(command.amountBaseUnits, "amountBaseUnits");
   invariant(

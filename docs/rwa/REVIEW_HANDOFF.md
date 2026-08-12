@@ -27,6 +27,12 @@ This slice adds a real local-validator proof of the original V1
 7. finalize the investor waterfall; and
 8. reject direct holder burn and redeem exactly 16.5 USDC per investor.
 
+The review fix also makes that route exclusive in V1. The on-chain registry and
+deal-creation boundaries, TypeScript domain and treasury constructors, GraphQL
+mutation layer, and operations UI reject `DIRECT_USDC`. Its serialized enum
+value and decoder remain reserved so a separately approved successor schema can
+activate it without renumbering existing data.
+
 The Rust changes box large Anchor account wrappers. They do not change account
 data layouts, PDA seeds, instruction arguments, or serialized interfaces. The
 change removes SBF frames that exceeded Solana's 4 KiB stack limit.
@@ -59,7 +65,7 @@ PDA.
 | Phase 1 registry RPC tracer | 17 passed |
 | Phase 2 lifecycle RPC tracer | 40 passed |
 | Rust workspace tests | 42 passed |
-| TypeScript client tests | 52 passed |
+| TypeScript client tests | 53 passed |
 | RWA indexer tests | 21 passed |
 | Infrastructure tests | 6 passed |
 | Client type-check and build | Passed |
@@ -105,12 +111,12 @@ The remaining local implementation and review work does not require shared
 credentials. Deployment requires inputs that are deliberately absent from the
 repository:
 
-- the intended AWS account, region, assumable role/profile, and CDK bootstrap;
+- a rotated AWS profile/role for account `132511547673` that can assume the CDK
+  bootstrap roles and read the existing Foundation stack template;
 - Devnet upgrade/program authority key custody and funded deployer;
 - the issuer Squads treasury address and authority matrix;
 - a credentialed RPC endpoint stored in Secrets Manager; and
-- confirmed issuer/servicer, coupon, beneficiary-rail, and release-executor
-  decisions.
+- confirmed issuer/servicer, coupon, and release-executor decisions.
 
 No access key, private key, RPC credential, bank detail, or beneficiary secret
 belongs in this branch or its PR.

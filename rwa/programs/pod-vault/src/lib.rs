@@ -161,6 +161,10 @@ pub mod pod_vault {
                 && args.usdc_ata != Pubkey::default(),
             VaultError::InvalidTerms
         );
+        require!(
+            requires_squads_fiat_forward(args.rail_kind),
+            VaultError::UnsupportedMseRail
+        );
 
         let slot = Clock::get()?.slot;
         let beneficiary = &mut ctx.accounts.mse_beneficiary;
@@ -2147,6 +2151,10 @@ fn validate_create_deal(ctx: &Context<CreateDeal>, args: &CreateDealArgs) -> Res
         VaultError::InactiveMseBeneficiary
     );
     require!(
+        requires_squads_fiat_forward(ctx.accounts.mse_beneficiary.rail_kind),
+        VaultError::UnsupportedMseRail
+    );
+    require!(
         args.issuer_entity_hash != ctx.accounts.mse_beneficiary.entity_hash,
         VaultError::IssuerBeneficiaryCollision
     );
@@ -2172,11 +2180,8 @@ fn validate_create_deal(ctx: &Context<CreateDeal>, args: &CreateDealArgs) -> Res
             && args.document_bundle_hash != [0; 32],
         VaultError::InvalidTerms
     );
-    // A SWIFT/bank route is only meaningful for the Squads fiat-forward rail; a
-    // direct-USDC MSE has no off-chain bank leg, so its bank route may be empty.
     require!(
-        ctx.accounts.mse_beneficiary.rail_kind != MseRailKind::SquadsFiatForward
-            || args.bank_route_hash != [0; 32],
+        args.bank_route_hash != [0; 32],
         VaultError::InvalidTerms
     );
     require!(
@@ -2817,10 +2822,10 @@ fn validate_locked_token_accounts_for_release(ctx: &Context<ExecuteRelease>) -> 
     )
 }
 
-/// The status a treasury movement must hold before it can be reconciled, which
-/// differs by rail: the Squads fiat-forward rail must clear its full off-chain
-/// evidence chain through `BankConfirmed`, while a direct-USDC movement is complete
-/// once the stablecoin has left the vault.
+/// The status a treasury movement must hold before it can be reconciled. V1 uses
+/// the full Squads fiat-forward evidence chain through `BankConfirmed`.
+/// `DirectUsdc` remains a reserved future discriminant but cannot be registered
+/// or selected by a V1 deal.
 fn reconcile_precondition(rail: MseRailKind) -> TreasuryMovementStatus {
     match rail {
         MseRailKind::SquadsFiatForward => TreasuryMovementStatus::BankConfirmed,
@@ -2829,8 +2834,8 @@ fn reconcile_precondition(rail: MseRailKind) -> TreasuryMovementStatus {
 }
 
 /// Whether a rail records the conversion, SWIFT and bank-confirmation evidence
-/// stages. Only the Squads fiat-forward rail has an off-chain USD leg; direct-USDC
-/// movements must never enter those stages.
+/// stages. V1 accepts only the Squads fiat-forward rail; the second discriminant
+/// is retained so a later schema can activate it without renumbering data.
 fn requires_squads_fiat_forward(rail: MseRailKind) -> bool {
     matches!(rail, MseRailKind::SquadsFiatForward)
 }

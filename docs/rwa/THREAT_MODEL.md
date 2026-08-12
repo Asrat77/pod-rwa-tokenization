@@ -34,11 +34,11 @@ recoverability without granting any single actor unilateral withdrawal power.
 | Threat | Preventive controls | Detection / response |
 |---|---|---|
 | Counterfeit USDC or token-program substitution | Settlement asset allowlist; exact mint, owner, token program and decimals stored in `DealTerms`; checked transfers | Transaction/account reconciliation; pause and reject manifest mismatch |
-| MSE ATA substitution | Exact MSE wallet owner and ATA locked before opening from the registry; no operator-entered release destination | Compare finalized destination to deal terms; incident if mismatch |
+| Issuer treasury ATA substitution | Exact US issuer Squads owner and ATA locked before opening from the registry; no operator-entered release destination | Compare finalized destination to deal terms; incident if mismatch |
 | Issuer/MSE-beneficiary conflation | Distinct entity hashes and client validation; on the Squads rail the fiat beneficiary has no token account | Configuration validation and acceptance test |
 | Malicious or suspended MSE registration | Only governance registers or suspends `MseBeneficiary`; `create_deal` requires an `Active` entry and re-validates the ATA mint/owner; wallet rotation forces a new entity hash | Alert on registry writes and on deals pinning a newly-registered beneficiary |
-| Wrong-rail evidence injection | `rail_kind` is copied from the registry into the movement; direct-USDC movements reject conversion/SWIFT/bank stages, Squads movements require the full chain before reconcile | Reject and alert on any stage/rail mismatch |
-| Third-party MSE forced to co-sign or blocked | Releases are proposed only by `platform_treasury_authority`, decoupled from the destination; the MSE is a passive recipient | Alert on release proposer ≠ platform treasury authority |
+| Unsupported-rail injection | V1 registration, deal creation, API mutations, and client validation accept only `SquadsFiatForward`; the future discriminant is decoder-only | Reject and alert on any non-V1 rail account or movement |
+| International MSE forced to co-sign | Releases are proposed only by `platform_treasury_authority`; the MSE has no on-chain token account or signing role | Alert on release proposer ≠ platform treasury authority |
 | Oracle fabricates a release | Publisher can only append oracle records; separate risk signer and delay; vault has fixed destination | Alert on authority collision or release without risk approval |
 | Stale, failed, or corrected gate replay | Canonical head and exact revision/hash/content/decision/expiry checks | Gate-correction and expiry tests; cancel queued release |
 | Oracle or RPC reorg/finality error | Financial workflow records finalized slot and signature; indexer never treats processed state as final | Reconcile account hash at finalized commitment; quarantine divergence |

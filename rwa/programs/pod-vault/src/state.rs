@@ -70,10 +70,10 @@ pub struct SettlementAssetConfig {
     pub reserved: [u8; RESERVED_ACCOUNT_BYTES],
 }
 
-/// Governance-registered destination for released stablecoin. Each deal pins exactly
-/// one active beneficiary at terms lock; the platform maintains many. The `rail_kind`
-/// determines whether releases feed a Squads vault (with an off-chain USD/SWIFT
-/// forward) or land directly in a third-party MSE wallet.
+/// Compatibility-named governance registry for a deal's V1 treasury route. Each
+/// entry binds an opaque international MSE reference to the exact US issuer Squads
+/// owner and USDC ATA. V1 requires `SquadsFiatForward`; the other discriminant is
+/// reserved for a separately approved future schema.
 #[account]
 pub struct MseBeneficiary {
     pub schema_version: u16,

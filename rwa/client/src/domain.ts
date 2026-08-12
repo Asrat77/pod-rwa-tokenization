@@ -102,13 +102,13 @@ export interface DealV1 {
   readonly issuer: IssuerV1;
   readonly servicer: ServicerV1;
   readonly mseDestination: MseDestinationV1;
-  /** Required for the Squads fiat-forward rail; absent for direct-USDC MSEs. */
+  /** Required in V1; identifies the international MSE receiving USD by SWIFT. */
   readonly fiatBeneficiary?: FiatBeneficiaryV1;
   readonly assetSetCommitment: ContentCommitment;
   readonly legalDocumentCommitment: ContentCommitment;
   readonly valuationCommitment: ContentCommitment;
   readonly compliancePolicyCommitment: ContentCommitment;
-  /** Required for the Squads fiat-forward rail; absent for direct-USDC MSEs. */
+  /** Required in V1; commits the approved conversion and beneficiary bank route. */
   readonly fiatRouteCommitment?: ContentCommitment;
   readonly settlementAsset: SettlementAssetV1;
   readonly minimumRaiseBaseUnits: BaseUnitString;
@@ -249,13 +249,7 @@ function canonicalPartyReference(value: string): string {
   return value.normalize("NFKC").toLocaleLowerCase("en-US");
 }
 
-/**
- * Enforces the legal/operational boundary between the US issuer and the party that
- * ultimately receives value. On the Squads fiat-forward rail the issuer owns the
- * on-chain treasury and forwards fiat to a distinct international beneficiary; on the
- * direct-USDC rail the MSE destination is itself the recipient and must be distinct
- * from the issuer and servicer.
- */
+/** Enforces the V1 US issuer treasury and international fiat-beneficiary boundary. */
 export function validateIssuerBeneficiarySeparation(
   issuer: IssuerV1,
   servicer: ServicerV1,
@@ -276,48 +270,40 @@ export function validateIssuerBeneficiarySeparation(
   );
 
   invariant(
+    destination.kind === "SQUADS_FIAT_FORWARD",
+    "INVALID_PARTY_CONFIGURATION",
+    "RWA V1 supports only the US issuer Squads fiat-forward treasury rail",
+  );
+
+  invariant(
     servicerReference === issuerReference,
     "INVALID_PARTY_CONFIGURATION",
     "V1 requires the issuer to be the registered servicer",
   );
 
-  if (destination.kind === "SQUADS_FIAT_FORWARD") {
-    invariant(
-      destinationReference === issuerReference,
-      "INVALID_PARTY_CONFIGURATION",
-      "the issuer must own the Squads fiat-forward treasury",
-    );
-    invariant(
-      fiatBeneficiary !== undefined,
-      "INVALID_PARTY_CONFIGURATION",
-      "the Squads fiat-forward rail requires a distinct fiat beneficiary",
-    );
-    validateEntityReference(
-      fiatBeneficiary.entityReference,
-      "fiatBeneficiary.entityReference",
-    );
-    const beneficiaryReference = canonicalPartyReference(
-      fiatBeneficiary.entityReference,
-    );
-    invariant(
-      beneficiaryReference !== issuerReference &&
-        beneficiaryReference !== servicerReference,
-      "INVALID_PARTY_CONFIGURATION",
-      "the fiat beneficiary must be legally distinct from the issuer and servicer",
-    );
-  } else {
-    invariant(
-      fiatBeneficiary === undefined,
-      "INVALID_PARTY_CONFIGURATION",
-      "a direct-USDC MSE deal does not carry a separate fiat beneficiary",
-    );
-    invariant(
-      destinationReference !== issuerReference &&
-        destinationReference !== servicerReference,
-      "INVALID_PARTY_CONFIGURATION",
-      "a direct-USDC MSE must be legally distinct from the issuer and servicer",
-    );
-  }
+  invariant(
+    destinationReference === issuerReference,
+    "INVALID_PARTY_CONFIGURATION",
+    "the issuer must own the Squads fiat-forward treasury",
+  );
+  invariant(
+    fiatBeneficiary !== undefined,
+    "INVALID_PARTY_CONFIGURATION",
+    "the Squads fiat-forward rail requires a distinct fiat beneficiary",
+  );
+  validateEntityReference(
+    fiatBeneficiary.entityReference,
+    "fiatBeneficiary.entityReference",
+  );
+  const beneficiaryReference = canonicalPartyReference(
+    fiatBeneficiary.entityReference,
+  );
+  invariant(
+    beneficiaryReference !== issuerReference &&
+      beneficiaryReference !== servicerReference,
+    "INVALID_PARTY_CONFIGURATION",
+    "the fiat beneficiary must be legally distinct from the issuer and servicer",
+  );
 }
 
 export function validateDealV1(deal: DealV1): DealV1 {
@@ -509,11 +495,9 @@ export function validateMseBeneficiaryV1(
   validateSolanaPublicKey(beneficiary.walletOwner, "walletOwner");
   validateSolanaPublicKey(beneficiary.usdcAta, "usdcAta");
   invariant(
-    (["SQUADS_FIAT_FORWARD", "DIRECT_USDC"] as const).includes(
-      beneficiary.railKind,
-    ),
-    "INVALID_ARGUMENT",
-    "MSE rail kind is unsupported",
+    beneficiary.railKind === "SQUADS_FIAT_FORWARD",
+    "INVALID_PARTY_CONFIGURATION",
+    "RWA V1 supports only the US issuer Squads fiat-forward treasury rail",
   );
   invariant(
     (["ACTIVE", "SUSPENDED"] as const).includes(beneficiary.status),

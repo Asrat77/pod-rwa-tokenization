@@ -38,8 +38,8 @@ Then run the registration tracer:
 
 1. All three programs deployed and executable.
 2. Protocol initialisation, including `platform_treasury_authority`.
-3. Two MSEs registered on **both rails** simultaneously, at distinct PDAs, with wallet/ATA/rail
-   round-tripping through the on-chain account layout.
+3. The US issuer Squads rail round-trips through the registry account layout,
+   while `DIRECT_USDC` is rejected and leaves no account behind.
 4. A **funded** non-governance signer is rejected (`Unauthorized`, lib.rs:153) and leaves no
    account behind — funded so the rejection cannot be a rent failure.
 5. Governance suspension flips status without disturbing wallet or rail.

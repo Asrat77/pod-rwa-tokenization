@@ -160,10 +160,10 @@ pub enum TreasuryMovementStatus {
     Returned,
 }
 
-/// Distinguishes how a deal's terms-locked MSE beneficiary receives the released
-/// stablecoin. The platform's own MSE takes custody in a Squads vault and forwards
-/// USD over SWIFT off-chain (the full evidence chain); a third-party MSE receives
-/// USDC directly into its registered wallet and has no conversion or SWIFT leg.
+/// Versioned rail discriminants. RWA V1 activates only `SquadsFiatForward`: the US
+/// issuer treasury receives USDC and forwards USD over SWIFT. `DirectUsdc` is
+/// reserved for a separately approved future schema and is rejected at V1 program
+/// boundaries; retaining its discriminant avoids a later serialization migration.
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,
