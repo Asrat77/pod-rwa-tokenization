@@ -1,0 +1,221 @@
+# RWA tokenization API — deployed as a separate AppSync API on the shared Cognito pool.
+
+# Generated from graphql/schema.graphql; keep the Rwa* definitions in sync.
+
+
+enum RwaDealState {
+  DRAFT
+  SUBSCRIPTION_OPEN
+  FUNDED
+  ACTIVE
+  REPAID
+  DEFAULT_RECOVERY
+  REDEEMABLE
+  CANCELLED_REFUNDABLE
+  SETTLED
+}
+
+enum RwaEligibilityStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REVOKED
+  SANCTIONS_HOLD
+}
+
+enum RwaTreasuryMovementStatus {
+  PROPOSED
+  APPROVED
+  USDC_RELEASED
+  CONVERTED
+  SWIFT_SENT
+  BANK_CONFIRMED
+  RECONCILED
+  FAILED
+  RETURNED
+}
+
+enum RwaMseRailKind {
+  SQUADS_FIAT_FORWARD
+  # Reserved for a separately approved future schema; V1 mutations reject it.
+  DIRECT_USDC
+}
+
+enum RwaMseBeneficiaryStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+type RwaMseBeneficiary {
+  entityHash: String!
+  walletOwner: String!
+  usdcAta: String!
+  railKind: RwaMseRailKind!
+  status: RwaMseBeneficiaryStatus!
+  chain: RwaChainRef
+}
+
+type RwaChainRef {
+  clusterGenesis: String!
+  programId: String!
+  address: String!
+  accountVersion: Int!
+  finalizedSlot: String!
+  signature: String!
+  accountHash: String!
+  lastReconciledAt: String!
+}
+
+type RwaWalletChallenge {
+  nonce: ID!
+  message: String!
+  expiresAt: String!
+}
+
+type RwaWalletBinding {
+  investorId: ID!
+  wallet: String!
+  status: RwaEligibilityStatus!
+  boundAt: String!
+}
+
+type RwaEligibility {
+  investorId: ID!
+  investorIdHash: String
+  wallet: String!
+  status: RwaEligibilityStatus!
+  providerRefHash: String!
+  policyVersion: String!
+  validUntil: String!
+}
+
+type RwaDeal {
+  id: ID!
+  displayName: String!
+  issuerEntityHash: String!
+  beneficiaryEntityHash: String!
+  assetSetHash: String!
+  documentBundleHash: String!
+  termsHash: String!
+  settlementMint: String!
+  receiptMint: String
+  receiptTokenProgram: String
+  dealIdHash: String
+  bankRouteHash: String!
+  mseWalletOwner: String
+  mseUsdcAta: String
+  mseRailKind: RwaMseRailKind
+  state: RwaDealState!
+  minimumRaiseBaseUnits: String!
+  hardCapBaseUnits: String!
+  fundedBaseUnits: String!
+  releasedBaseUnits: String!
+  repaidBaseUnits: String!
+  couponBps: Int!
+  subscriptionOpenAt: String!
+  subscriptionCloseAt: String!
+  maturityAt: String!
+  chain: RwaChainRef
+}
+
+type RwaMilestone {
+  dealId: ID!
+  index: Int!
+  gateKind: String!
+  allocationBps: Int!
+  amountBaseUnits: String!
+  gateAddress: String
+  gateRevision: Int
+  status: String!
+  executeAfter: String
+  executedAt: String
+  chain: RwaChainRef
+}
+
+type RwaPosition {
+  dealId: ID!
+  investorId: ID!
+  investorIdHash: String
+  wallet: String!
+  eligibilityStatus: RwaEligibilityStatus!
+  contributedBaseUnits: String!
+  receiptBaseUnits: String!
+  refundedBaseUnits: String!
+  redeemedBaseUnits: String!
+  chain: RwaChainRef
+}
+
+type RwaSettlement {
+  dealId: ID!
+  supplySnapshotBaseUnits: String!
+  investorPoolBaseUnits: String!
+  claimedBaseUnits: String!
+  defaulted: Boolean!
+  claimDeadlineAt: String!
+  chain: RwaChainRef
+}
+
+type RwaTreasuryMovement {
+  id: ID!
+  dealId: ID!
+  milestoneIndex: Int!
+  status: RwaTreasuryMovementStatus!
+  railKind: RwaMseRailKind!
+  releasedUsdcBaseUnits: String!
+  grossUsdMinor: String!
+  netUsdMinor: String!
+  conversionRateE8: String!
+  providerFeesUsdMinor: String!
+  bankFeesUsdMinor: String!
+  beneficiaryEntityHash: String!
+  bankRouteHash: String!
+  conversionProviderRefHash: String
+  swiftUetrHash: String
+  bankConfirmationHash: String
+  treasuryApprovedBy: ID
+  riskApprovedBy: ID
+  updatedAt: String!
+  chain: RwaChainRef
+}
+
+type RwaFiatRepayment {
+  id: ID!
+  dealId: ID!
+  payerType: String!
+  fiatBankEvidenceHash: String!
+  grossUsdMinor: String!
+  netUsdcBaseUnits: String!
+  conversionProviderRefHash: String!
+  onchainRepaymentSignature: String
+  status: String!
+  updatedAt: String!
+}
+
+type Query {
+  rwaDeals: [RwaDeal!]!
+  rwaDeal(dealId: ID!): RwaDeal
+  rwaEligibility: RwaEligibility
+  rwaPosition(dealId: ID!): RwaPosition
+  rwaMilestones(dealId: ID!): [RwaMilestone!]!
+  rwaTreasuryMovements(dealId: ID!): [RwaTreasuryMovement!]!
+  rwaSettlement(dealId: ID!): RwaSettlement
+  rwaMseBeneficiaries: [RwaMseBeneficiary!]!
+}
+
+type Mutation {
+  createRwaWalletChallenge(input: CreateRwaWalletChallengeInput!): RwaWalletChallenge!
+  bindRwaWallet(input: BindRwaWalletInput!): RwaWalletBinding!
+  recoverRwaWallet(input: RecoverRwaWalletInput!): RwaWalletBinding!
+  createFiatDisbursement(input: CreateFiatDisbursementInput!): RwaTreasuryMovement!
+  approveFiatDisbursement(input: ApproveFiatDisbursementInput!): RwaTreasuryMovement!
+  markUsdcReleased(input: MarkUsdcReleasedInput!): RwaTreasuryMovement!
+  recordConversion(input: RecordConversionInput!): RwaTreasuryMovement!
+  recordSwiftConfirmation(input: RecordSwiftConfirmationInput!): RwaTreasuryMovement!
+  recordFiatRepayment(input: RecordFiatRepaymentInput!): RwaFiatRepayment!
+  reconcileTreasuryMovement(input: ReconcileTreasuryMovementInput!): RwaTreasuryMovement!
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+}
