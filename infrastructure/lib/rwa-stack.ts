@@ -167,10 +167,37 @@ export class RwaStack extends cdk.Stack {
     });
     domainTable.grantReadWriteData(indexerHandler);
 
+    // Indexer enablement is deliberately opt-in and validated up front: an enabled
+    // indexer that cannot reach a program or an RPC endpoint would silently write an
+    // empty mirror, and the mirror is what operations reads.
+    const indexerEnabledContext = String(
+      this.node.tryGetContext('rwaIndexerEnabled') ?? 'false',
+    ).toLowerCase();
+    if (!['true', 'false'].includes(indexerEnabledContext)) {
+      throw new Error('rwaIndexerEnabled must be true or false');
+    }
+    const indexerEnabled = indexerEnabledContext === 'true';
+    const scheduleMinutes = Number(this.node.tryGetContext('rwaIndexerScheduleMinutes') ?? 5);
+    if (!Number.isInteger(scheduleMinutes) || scheduleMinutes < 1 || scheduleMinutes > 60) {
+      throw new Error('rwaIndexerScheduleMinutes must be an integer from 1 to 60');
+    }
+    const vaultProgramIdContext = this.node.tryGetContext('rwaVaultProgramId');
+    const rpcUrlContext = this.node.tryGetContext('rwaRpcUrl');
+    const rpcSecretArn = this.node.tryGetContext('rwaRpcSecretArn');
+    if (indexerEnabled && !vaultProgramIdContext) {
+      throw new Error('An enabled RWA indexer requires rwaVaultProgramId context');
+    }
+    if (indexerEnabled && !rpcUrlContext && !rpcSecretArn && !props.solanaRpcSecretName) {
+      throw new Error('An enabled RWA indexer requires rwaRpcUrl or rwaRpcSecretArn context');
+    }
+    if (rpcUrlContext && rpcSecretArn) {
+      throw new Error('Set exactly one of rwaRpcUrl or rwaRpcSecretArn context');
+    }
+
     // Disabled until a dry run is verified against deployed programs.
     const schedule = new events.Rule(this, 'RwaIndexerSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
-      enabled: false,
+      schedule: events.Schedule.rate(cdk.Duration.minutes(scheduleMinutes)),
+      enabled: indexerEnabled,
       targets: [new targets.LambdaFunction(indexerHandler)],
     });
 

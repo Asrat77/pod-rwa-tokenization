@@ -35,6 +35,12 @@ enum RwaTreasuryMovementStatus {
   RETURNED
 }
 
+enum RwaFxRateSource {
+  CONTRACT_USD
+  CONTRACT_FX_RATE
+  PLACEHOLDER_DEFAULT
+}
+
 enum RwaMseRailKind {
   SQUADS_FIAT_FORWARD
   # Reserved for a separately approved future schema; V1 mutations reject it.
@@ -108,6 +114,9 @@ type RwaDeal {
   state: RwaDealState!
   minimumRaiseBaseUnits: String!
   hardCapBaseUnits: String!
+  usdRateSource: RwaFxRateSource
+  usdRateApplied: String
+  usdRateUnverified: Boolean
   fundedBaseUnits: String!
   releasedBaseUnits: String!
   repaidBaseUnits: String!
